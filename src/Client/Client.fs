@@ -1,114 +1,308 @@
-module Client
+module App
 
+open Browser
+open Browser.Types
 open Elmish
-open Elmish.React
+
+let [<Literal>] ESC_KEY = 27.
+let [<Literal>] ENTER_KEY = 13.
+let [<Literal>] ALL_TODOS = "all"
+let [<Literal>] ACTIVE_TODOS = "active"
+let [<Literal>] COMPLETED_TODOS = "completed"
+
+
+// MODEL
+type Entry =
+    { description : string
+      completed : bool
+      editing : bool
+      id : int }
+
+// The full application state of our todo app.
+type Model =
+    { entries : Entry list
+      field : string
+      uid : int
+      visibility : string }
+
+let emptyModel =
+    { entries = []
+      visibility = ALL_TODOS
+      field = ""
+      uid = 0 }
+
+let newEntry desc id =
+  { description = desc
+    completed = false
+    editing = false
+    id = id }
+
+
+let init = function
+  | Some savedModel -> savedModel, []
+  | _ -> emptyModel, []
+
+
+// UPDATE
+
+
+(** Users of our app can trigger messages by clicking and typing. These
+messages are fed into the `update` function as they occur, letting us react
+to them.
+*)
+type Msg =
+    | Failure of string
+    | UpdateField of string
+    | EditingEntry of int*bool
+    | UpdateEntry of int*string
+    | Add
+    | Delete of int
+    | DeleteComplete
+    | Check of int*bool
+    | CheckAll of bool
+    | ChangeVisibility of string
+
+
+
+// How we update our Model on a given Msg?
+let update (msg:Msg) (model:Model) : Model*Cmd<Msg>=
+    match msg with
+    | Failure err ->
+        console.error(err)
+        model, []
+
+    | Add ->
+        let xs = if System.String.IsNullOrEmpty model.field then
+                    model.entries
+                 else
+                    model.entries @ [newEntry model.field model.uid]
+        { model with
+            uid = model.uid + 1
+            field = ""
+            entries = xs }, []
+
+    | UpdateField str ->
+      { model with field = str }, []
+
+    | EditingEntry (id,isEditing) ->
+        let updateEntry t =
+          if t.id = id then { t with editing = isEditing } else t
+        { model with entries = List.map updateEntry model.entries }, []
+
+    | UpdateEntry (id,task) ->
+        let updateEntry t =
+          if t.id = id then { t with description = task } else t
+        { model with entries = List.map updateEntry model.entries }, []
+
+    | Delete id ->
+        { model with entries = List.filter (fun t -> t.id <> id) model.entries }, []
+
+    | DeleteComplete ->
+        { model with entries = List.filter (fun t -> not t.completed) model.entries }, []
+
+    | Check (id,isCompleted) ->
+        let updateEntry t =
+          if t.id = id then { t with completed = isCompleted } else t
+        { model with entries = List.map updateEntry model.entries }, []
+
+    | CheckAll isCompleted ->
+        let updateEntry t = { t with completed = isCompleted }
+        { model with entries = List.map updateEntry model.entries }, []
+
+    | ChangeVisibility visibility ->
+        { model with visibility = visibility }, []
+
+// Local storage interface
+module S =
+    let private STORAGE_KEY = "elmish-react-todomvc"
+    let private decoder = Thoth.Json.Decode.Auto.generateDecoder<Model>()
+    let load (): Model option =
+        localStorage.getItem(STORAGE_KEY)
+        |> unbox
+        |> Core.Option.bind (Thoth.Json.Decode.fromValue "$" decoder >> function Ok x -> Some x | _ -> None)
+
+    let save (model: Model) =
+        localStorage.setItem(STORAGE_KEY, Thoth.Json.Encode.Auto.toString(1,model))
+
+
+let setStorage (model:Model) : Cmd<Msg> =
+    Cmd.OfFunc.attempt S.save model (string >> Failure)
+
+let updateWithStorage (msg:Msg) (model:Model) =
+  match msg with
+  // If the Msg is Failure we know the model hasn't changed
+  | Failure _ -> model, []
+  | _ ->
+    let (newModel, cmds) = update msg model
+    newModel, Cmd.batch [ setStorage newModel; cmds ]
+
+open Fable.Core.JsInterop
 open Fable.React
 open Fable.React.Props
-open Fetch.Types
-open Thoth.Json
+open Elmish.React
 
-open Shared
+let internal onEnter msg dispatch =
+    function
+    | (ev:KeyboardEvent) when ev.keyCode = ENTER_KEY ->
+        ev.target?value <- ""
+        dispatch msg
+    | _ -> ()
+    |> OnKeyDown
 
-// The model holds data that you want to keep track of while the application is running
-// in this case, we are keeping track of a counter
-// we mark it as optional, because initially it will not be available from the client
-// the initial value will be requested from server
-type Model = { Counter: Counter option }
+let viewInput (model:string) dispatch =
+    header [ ClassName "header" ] [
+        h1 [] [ str "todos" ]
+        input [
+            ClassName "new-todo"
+            Placeholder "What needs to be done?"
+            valueOrDefault model
+            onEnter Add dispatch
+            OnChange (fun (ev:Event) -> !!ev.target?value |> UpdateField |> dispatch)
+            AutoFocus true
+        ]
+    ]
 
-// The Msg type defines what events/actions can occur while the application is running
-// the state of the application changes *only* in reaction to these events
-type Msg =
-| Increment
-| Decrement
-| InitialCountLoaded of Counter
+let internal classList classes =
+    classes
+    |> List.fold (fun complete -> function | (name,true) -> complete + " " + name | _ -> complete) ""
+    |> ClassName
+
+let viewEntry todo dispatch =
+  li
+    [ classList [ ("completed", todo.completed); ("editing", todo.editing) ]]
+    [ div
+        [ ClassName "view" ]
+        [ input
+            [ ClassName "toggle"
+              Type "checkbox"
+              Checked todo.completed
+              OnChange (fun _ -> Check (todo.id,(not todo.completed)) |> dispatch) ]
+          label
+            [ OnDoubleClick (fun _ -> EditingEntry (todo.id,true) |> dispatch) ]
+            [ str todo.description ]
+          button
+            [ ClassName "destroy"
+              OnClick (fun _-> Delete todo.id |> dispatch) ]
+            []
+        ]
+      input
+        [ ClassName "edit"
+          DefaultValue todo.description
+          Name "title"
+          Id ("todo-" + (string todo.id))
+          OnInput (fun ev -> UpdateEntry (todo.id, !!ev.target?value) |> dispatch)
+          OnBlur (fun _ -> EditingEntry (todo.id,false) |> dispatch)
+          onEnter (EditingEntry (todo.id,false)) dispatch ]
+    ]
+
+let viewEntries visibility entries dispatch =
+    let isVisible todo =
+        match visibility with
+        | COMPLETED_TODOS -> todo.completed
+        | ACTIVE_TODOS -> not todo.completed
+        | _ -> true
+
+    let allCompleted =
+        List.forall (fun t -> t.completed) entries
+
+    let cssVisibility =
+        if List.isEmpty entries then "hidden" else "visible"
+
+    section
+      [ ClassName "main"
+        Style [ Visibility cssVisibility ]]
+      [ input
+          [ ClassName "toggle-all"
+            Type "checkbox"
+            Name "toggle"
+            Checked allCompleted
+            OnChange (fun _ -> CheckAll (not allCompleted) |> dispatch)]
+        label
+          [ HtmlFor "toggle-all" ]
+          [ str "Mark all as complete" ]
+        ul
+          [ ClassName "todo-list" ]
+          (entries
+           |> List.filter isVisible
+           |> List.map (fun i -> lazyView2 viewEntry i dispatch)) ]
+
+// VIEW CONTROLS AND FOOTER
+let visibilitySwap uri visibility actualVisibility dispatch =
+  li
+    [ OnClick (fun _ -> ChangeVisibility visibility |> dispatch) ]
+    [ a [ Href uri
+          classList ["selected", visibility = actualVisibility] ]
+          [ str visibility ] ]
+
+let viewControlsFilters visibility dispatch =
+  ul
+    [ ClassName "filters" ]
+    [ visibilitySwap "#/" ALL_TODOS visibility dispatch
+      str " "
+      visibilitySwap "#/active" ACTIVE_TODOS visibility dispatch
+      str " "
+      visibilitySwap "#/completed" COMPLETED_TODOS visibility dispatch ]
+
+let viewControlsCount entriesLeft =
+  let item =
+      if entriesLeft = 1 then " item" else " items"
+
+  span
+      [ ClassName "todo-count" ]
+      [ strong [] [ str (string entriesLeft) ]
+        str (item + " left") ]
+
+let viewControlsClear entriesCompleted dispatch =
+  button
+    [ ClassName "clear-completed"
+      Hidden (entriesCompleted = 0)
+      OnClick (fun _ -> DeleteComplete |> dispatch)]
+    [ str ("Clear completed (" + (string entriesCompleted) + ")") ]
+
+let viewControls visibility entries dispatch =
+  let entriesCompleted =
+      entries
+      |> List.filter (fun t -> t.completed)
+      |> List.length
+
+  let entriesLeft =
+      List.length entries - entriesCompleted
+
+  footer
+      [ ClassName "footer"
+        Hidden (List.isEmpty entries) ]
+      [ lazyView viewControlsCount entriesLeft
+        lazyView2 viewControlsFilters visibility dispatch
+        lazyView2 viewControlsClear entriesCompleted dispatch ]
 
 
+let infoFooter =
+  footer [ ClassName "info" ]
+    [ p []
+        [ str "Double-click to edit a todo" ]
+      p []
+        [ str "Ported from Elm by "
+          a [ Href "https://github.com/et1975" ] [ str "Eugene Tolmachev" ]]
+      p []
+        [ str "Part of "
+          a [ Href "http://todomvc.com" ] [ str "TodoMVC" ]]
+    ]
 
-// Fetch a data structure from specified url and using the decoder
-let fetchWithDecoder<'T> (url: string) (decoder: Decoder<'T>) (init: RequestProperties list) =
-    promise {
-        let! response = GlobalFetch.fetch(RequestInfo.Url url, Fetch.requestProps init)
-        let! body = response.text()
-        return Decode.unsafeFromString decoder body
-    }
+let view model dispatch =
+  div
+    [ ClassName "todomvc-wrapper"]
+    [ section
+        [ ClassName "todoapp" ]
+        [ lazyView2 viewInput model.field dispatch
+          lazyView3 viewEntries model.visibility model.entries dispatch
+          lazyView3 viewControls model.visibility model.entries dispatch ]
+      infoFooter ]
 
-// Inline the function so Fable can resolve the generic parameter at compile time
-let inline fetchAs<'T> (url: string) (init: RequestProperties list) =
-    // In this example we use Thoth.Json cached auto decoders
-    // More info at: https://mangelmaxime.github.io/Thoth/json/v3.html#caching
-    let decoder = Decode.Auto.generateDecoderCached<'T>()
-    fetchWithDecoder url decoder init
-
-let initialCounter = fetchAs<Counter> "/api/init"
-
-// defines the initial state and initial command (= side-effect) of the application
-let init () : Model * Cmd<Msg> =
-    let initialModel = { Counter = None }
-    let loadCountCmd =
-        Cmd.OfPromise.perform initialCounter [] InitialCountLoaded
-    initialModel, loadCountCmd
-
-
-
-// The update function computes the next state of the application based on the current state and the incoming events/messages
-// It can also run side-effects (encoded as commands) like calling the server via Http.
-// these commands in turn, can dispatch messages to which the update function will react.
-let update (msg : Msg) (currentModel : Model) : Model * Cmd<Msg> =
-    match currentModel.Counter, msg with
-    | Some counter, Increment ->
-        let nextModel = { currentModel with Counter = Some { Value = counter.Value + 1 } }
-        nextModel, Cmd.none
-    | Some counter, Decrement ->
-        let nextModel = { currentModel with Counter = Some { Value = counter.Value - 1 } }
-        nextModel, Cmd.none
-    | _, InitialCountLoaded initialCount->
-        let nextModel = { Counter = Some initialCount }
-        nextModel, Cmd.none
-
-    | _ -> currentModel, Cmd.none
-
-
-let safeComponents =
-    let components =
-        span [ ]
-           [
-             a [ Href "https://saturnframework.github.io" ] [ str "Saturn" ]
-             str ", "
-             a [ Href "http://fable.io" ] [ str "Fable" ]
-             str ", "
-             a [ Href "https://elmish.github.io/elmish/" ] [ str "Elmish" ]
-           ]
-
-    span [ ]
-        [ strong [] [ str "SAFE Template" ]
-          str " powered by: "
-          components ]
-
-let show = function
-| { Counter = Some counter } -> string counter.Value
-| { Counter = None   } -> "Loading..."
-
-let view (model : Model) (dispatch : Msg -> unit) =
-    div []
-        [ h1 [] [ str "SAFE Template" ]
-          p  [] [ str "The initial counter is fetched from server" ]
-          p  [] [ str "Press buttons to manipulate counter:" ]
-          button [ OnClick (fun _ -> dispatch Decrement) ] [ str "-" ]
-          div [] [ str (show model) ]
-          button [ OnClick (fun _ -> dispatch Increment) ] [ str "+" ]
-          safeComponents ]
-
-#if DEBUG
 open Elmish.Debug
-open Elmish.HMR
-#endif
-
-Program.mkProgram init update view
-#if DEBUG
-|> Program.withConsoleTrace
-#endif
+// App
+Program.mkProgram (S.load >> init) updateWithStorage view
 |> Program.withReactBatched "elmish-app"
 #if DEBUG
-|> Program.withDebugger
+    |> Program.withDebugger
 #endif
 |> Program.run
