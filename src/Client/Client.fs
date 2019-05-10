@@ -275,17 +275,27 @@ let viewControls visibility entries dispatch =
         lazyView2 viewControlsFilters visibility dispatch
         lazyView2 viewControlsClear entriesCompleted dispatch ]
 
+let safeComponents =
+    let components =
+        span [ ]
+           [
+             a [ Href "https://saturnframework.github.io" ] [ str "Saturn" ]
+             str ", "
+             a [ Href "http://fable.io" ] [ str "Fable" ]
+             str ", "
+             a [ Href "https://elmish.github.io/elmish/" ] [ str "Elmish" ]
+           ]
+
+    span [ ]
+        [ strong [] [ str "SAFE Todo MVC" ]
+          str " powered by: "
+          components ]
 
 let infoFooter =
   footer [ ClassName "info" ]
     [ p []
         [ str "Double-click to edit a todo" ]
-      p []
-        [ str "Ported from Elm by "
-          a [ Href "https://github.com/et1975" ] [ str "Eugene Tolmachev" ]]
-      p []
-        [ str "Part of "
-          a [ Href "http://todomvc.com" ] [ str "TodoMVC" ]]
+      safeComponents
     ]
 
 let view model dispatch =
