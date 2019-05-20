@@ -16,13 +16,13 @@ let [<Literal>] COMPLETED_TODOS = "completed"
 let emptyModel =
     { entries = []
       visibility = ALL_TODOS
+      editing = None
       field = ""
       uid = 0 }
 
 let newEntry desc id =
   { description = desc
     completed = false
-    editing = false
     id = id }
 
 
@@ -73,9 +73,7 @@ let update (msg:Msg) (model:Model) : Model*Cmd<Msg>=
       { model with field = str }, []
 
     | EditingEntry (id,isEditing) ->
-        let updateEntry t =
-          if t.id = id then { t with editing = isEditing } else t
-        { model with entries = List.map updateEntry model.entries }, []
+        { model with editing = if isEditing then Some id else None }, []
 
     | UpdateEntry (id,task) ->
         let updateEntry t =
@@ -155,9 +153,9 @@ let internal classList classes =
     |> List.fold (fun complete -> function | (name,true) -> complete + " " + name | _ -> complete) ""
     |> ClassName
 
-let viewEntry todo dispatch =
+let viewEntry (todo, editing) dispatch =
   li
-    [ classList [ ("completed", todo.completed); ("editing", todo.editing) ]]
+    [ classList [ ("completed", todo.completed); ("editing", editing) ]]
     [ div
         [ ClassName "view" ]
         [ input
@@ -183,7 +181,8 @@ let viewEntry todo dispatch =
           onEnter (EditingEntry (todo.id,false)) dispatch ]
     ]
 
-let viewEntries visibility entries dispatch =
+let viewEntries visibility model dispatch =
+    let entries = model.entries
     let isVisible todo =
         match visibility with
         | COMPLETED_TODOS -> todo.completed
@@ -212,7 +211,7 @@ let viewEntries visibility entries dispatch =
           [ ClassName "todo-list" ]
           (entries
            |> List.filter isVisible
-           |> List.map (fun i -> lazyView2 viewEntry i dispatch)) ]
+           |> List.map (fun i -> lazyView2 viewEntry (i, model.editing = Some i.id) dispatch)) ]
 
 // VIEW CONTROLS AND FOOTER
 let visibilitySwap uri visibility actualVisibility dispatch =
@@ -292,7 +291,7 @@ let view model dispatch =
     [ section
         [ ClassName "todoapp" ]
         [ lazyView2 viewInput model.field dispatch
-          lazyView3 viewEntries model.visibility model.entries dispatch
+          lazyView3 viewEntries model.visibility model dispatch
           lazyView3 viewControls model.visibility model.entries dispatch ]
       infoFooter ]
 

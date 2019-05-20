@@ -63,6 +63,7 @@ let webApp = router {
                 | Ok model -> model
                 | Error _ ->
                         { entries = []
+                          editing = None
                           visibility = "all"
                           field = ""
                           uid = 0 }
