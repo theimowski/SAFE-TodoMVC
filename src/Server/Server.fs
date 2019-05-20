@@ -19,13 +19,19 @@ let port =
     "SERVER_PORT"
     |> tryGetEnv |> Option.map uint16 |> Option.defaultValue 8085us
 
-let getInitCounter() : Task<Counter> = task { return { Value = 42 } }
+let save (model: Model) : Task<Model> =
+    task {
+        printfn "--> %A" model
+        return model
+    }
 
 let webApp = router {
-    get "/api/init" (fun next ctx ->
+    post "/api/save" (fun next ctx ->
         task {
-            let! counter = getInitCounter()
-            return! json counter next ctx
+            printfn "--> before"
+            let! model = ctx.BindModelAsync<Model>()
+            let! saved = save model
+            return! json saved next ctx
         })
 }
 

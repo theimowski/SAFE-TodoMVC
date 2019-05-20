@@ -3,27 +3,15 @@ module App
 open Browser
 open Browser.Types
 open Elmish
+open Thoth.Fetch
+
+open Shared
 
 let [<Literal>] ESC_KEY = 27.
 let [<Literal>] ENTER_KEY = 13.
 let [<Literal>] ALL_TODOS = "all"
 let [<Literal>] ACTIVE_TODOS = "active"
 let [<Literal>] COMPLETED_TODOS = "completed"
-
-
-// MODEL
-type Entry =
-    { description : string
-      completed : bool
-      editing : bool
-      id : int }
-
-// The full application state of our todo app.
-type Model =
-    { entries : Entry list
-      field : string
-      uid : int
-      visibility : string }
 
 let emptyModel =
     { entries = []
@@ -128,13 +116,22 @@ module S =
 let setStorage (model:Model) : Cmd<Msg> =
     Cmd.OfFunc.attempt S.save model (string >> Failure)
 
+let save (model: Model) : Cmd<Msg> =
+    let x (model : Model) =
+        promise {
+            let! (m: Model) = Thoth.Fetch.Fetch.post ("/api/save", model)
+            console.info m
+            return ()
+        }
+    Cmd.OfPromise.attempt x model (string >> Failure)
+
 let updateWithStorage (msg:Msg) (model:Model) =
   match msg with
   // If the Msg is Failure we know the model hasn't changed
   | Failure _ -> model, []
   | _ ->
     let (newModel, cmds) = update msg model
-    newModel, Cmd.batch [ setStorage newModel; cmds ]
+    newModel, Cmd.batch [ setStorage newModel; save newModel; cmds ]
 
 open Fable.Core.JsInterop
 open Fable.React
