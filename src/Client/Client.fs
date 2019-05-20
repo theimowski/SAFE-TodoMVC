@@ -26,10 +26,6 @@ let newEntry desc id =
     id = id }
 
 
-let init = function
-  | Some savedModel -> savedModel, []
-  | _ -> emptyModel, []
-
 
 // UPDATE
 
@@ -39,6 +35,7 @@ messages are fed into the `update` function as they occur, letting us react
 to them.
 *)
 type Msg =
+    | Loaded of Model
     | Failure of string
     | UpdateField of string
     | EditingEntry of int*bool
@@ -55,6 +52,9 @@ type Msg =
 // How we update our Model on a given Msg?
 let update (msg:Msg) (model:Model) : Model*Cmd<Msg>=
     match msg with
+    | Loaded model ->
+        model, []
+
     | Failure err ->
         console.error(err)
         model, []
@@ -100,21 +100,12 @@ let update (msg:Msg) (model:Model) : Model*Cmd<Msg>=
     | ChangeVisibility visibility ->
         { model with visibility = visibility }, []
 
-// Local storage interface
-module S =
-    let private STORAGE_KEY = "elmish-react-todomvc"
-    let private decoder = Thoth.Json.Decode.Auto.generateDecoder<Model>()
-    let load (): Model option =
-        localStorage.getItem(STORAGE_KEY)
-        |> unbox
-        |> Core.Option.bind (Thoth.Json.Decode.fromValue "$" decoder >> function Ok x -> Some x | _ -> None)
-
-    let save (model: Model) =
-        localStorage.setItem(STORAGE_KEY, Thoth.Json.Encode.Auto.toString(1,model))
+let load () =
+    let x () = Thoth.Fetch.Fetch.fetchAs<Model> "api/model"
+    Cmd.OfPromise.either x () Loaded (string >> Failure)
 
 
-let setStorage (model:Model) : Cmd<Msg> =
-    Cmd.OfFunc.attempt S.save model (string >> Failure)
+let init () = emptyModel, load ()
 
 let save (model: Model) : Cmd<Msg> =
     let x (model : Model) =
@@ -131,7 +122,7 @@ let updateWithStorage (msg:Msg) (model:Model) =
   | Failure _ -> model, []
   | _ ->
     let (newModel, cmds) = update msg model
-    newModel, Cmd.batch [ setStorage newModel; save newModel; cmds ]
+    newModel, Cmd.batch [ save newModel; cmds ]
 
 open Fable.Core.JsInterop
 open Fable.React
@@ -307,7 +298,7 @@ let view model dispatch =
 
 open Elmish.Debug
 // App
-Program.mkProgram (S.load >> init) updateWithStorage view
+Program.mkProgram init updateWithStorage view
 |> Program.withReactBatched "elmish-app"
 #if DEBUG
     |> Program.withDebugger

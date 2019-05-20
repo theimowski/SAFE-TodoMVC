@@ -90,6 +90,10 @@ Target.create "Run" (fun _ ->
         openBrowser "http://localhost:8080"
     }
 
+    Environment.GetEnvironmentVariable "GENERIC_AZURE_STORAGE_CONNECTIONSTRING"
+    |> fun x -> if String.isNullOrEmpty x then failwithf "no connection string!" else x
+    |> fun x -> Environment.SetEnvironmentVariable("STORAGE_CONNECTIONSTRING", x)
+
     let vsCodeSession = Environment.hasEnvironVar "vsCodeSession"
     let safeClientOnly = Environment.hasEnvironVar "safeClientOnly"
 
