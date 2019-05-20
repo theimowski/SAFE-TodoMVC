@@ -120,7 +120,8 @@ let updateWithStorage (msg:Msg) (model:Model) =
   | Failure _ -> model, []
   | _ ->
     let (newModel, cmds) = update msg model
-    newModel, Cmd.batch [ save newModel; cmds ]
+    let save = if newModel.entries <> model.entries then save newModel else Cmd.none
+    newModel, Cmd.batch [ save; cmds ]
 
 open Fable.Core.JsInterop
 open Fable.React
