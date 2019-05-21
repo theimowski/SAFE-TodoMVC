@@ -19,13 +19,37 @@ let port =
     "SERVER_PORT"
     |> tryGetEnv |> Option.map uint16 |> Option.defaultValue 8085us
 
-let getInitCounter() : Task<Counter> = task { return { Value = 42 } }
+type Entry =
+    { Id : int
+      Description : string
+      IsCompleted : bool }
+
+let mutable database : Entry list =
+    [ { Id = 0
+        Description = "prepare slides"
+        IsCompleted = false } ]
+
+let getEntries() : Task<Entry list> =
+    task {
+        return database
+    }
+
+let saveEntries (entries: Entry list) =
+    task {
+        database <- entries
+    }
 
 let webApp = router {
-    get "/api/init" (fun next ctx ->
+    get "/api/entries" (fun next ctx ->
         task {
-            let! counter = getInitCounter()
+            let! counter = getEntries()
             return! json counter next ctx
+        })
+    post "/api/entries" (fun next ctx ->
+        task {
+            let! entries = ctx.BindModelAsync<Entry list>()
+            do! saveEntries entries
+            return! Successful.OK "Saved successfully!" next ctx
         })
 }
 
