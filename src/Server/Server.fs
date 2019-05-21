@@ -55,19 +55,16 @@ module Azure =
             return ()
         }
 
-let mutable database : Entry list =
-    [ { Id = 0
-        Description = "prepare slides"
-        IsCompleted = false } ]
-
-let getEntries() : Task<Entry list> =
+let getEntries () =
     task {
-        return database
+        let! json = Azure.getTextFromBlob ()
+        return Decode.Auto.unsafeFromString<Entry []> json
     }
 
-let saveEntries (entries: Entry list) =
+let saveEntries (model: Entry list) =
     task {
-        database <- entries
+        let json = Encode.Auto.toString(1, model)
+        do! Azure.saveTextToBlob json
     }
 
 let webApp = router {
