@@ -30,7 +30,7 @@ let blob =
         let! _ = blobRef.CreateIfNotExistsAsync ()
         let file = blobRef.GetBlockBlobReference "todos.json"
         let! exists = file.ExistsAsync()
-        if not exists then do! file.UploadTextAsync ""
+        if not exists then do! file.UploadTextAsync "[]"
         return file
     }
     |> Async.AwaitTask
@@ -39,12 +39,12 @@ let blob =
 let getModel () =
     task {
         let! json = blob.DownloadTextAsync()
-        return Decode.Auto.fromString<Model> json
+        return Decode.Auto.fromString<Entry []> json
     }
 
 let leaseTime = TimeSpan.FromSeconds 15.
 
-let save (model: Model) : Task<Model> =
+let save (model: Entry []) : Task<Entry []> =
     task {
         let! lease = blob.AcquireLeaseAsync(Nullable.op_Implicit leaseTime, null)
         let json = Encode.Auto.toString(1, model)
@@ -61,17 +61,12 @@ let webApp = router {
             let model =
                 match m with
                 | Ok model -> model
-                | Error _ ->
-                        { entries = []
-                          editing = None
-                          visibility = "all"
-                          field = ""
-                          uid = 0 }
+                | Error _ -> [||]
             return! json model next ctx
         })
     post "/api/save" (fun next ctx ->
         task {
-            let! model = ctx.BindModelAsync<Model>()
+            let! model = ctx.BindModelAsync<Entry []>()
             let! saved = save model
             return! json saved next ctx
         })

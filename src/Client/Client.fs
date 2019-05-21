@@ -13,8 +13,16 @@ let [<Literal>] ALL_TODOS = "all"
 let [<Literal>] ACTIVE_TODOS = "active"
 let [<Literal>] COMPLETED_TODOS = "completed"
 
+// The full application state of our todo app.
+type Model =
+    { entries : Entry []
+      editing : int option
+      field : string
+      uid : int
+      visibility : string }
+
 let emptyModel =
-    { entries = []
+    { entries = [||]
       visibility = ALL_TODOS
       editing = None
       field = ""
@@ -35,7 +43,7 @@ messages are fed into the `update` function as they occur, letting us react
 to them.
 *)
 type Msg =
-    | Loaded of Model
+    | Loaded of Entry []
     | Failure of string
     | UpdateField of string
     | EditingEntry of int*bool
@@ -52,8 +60,8 @@ type Msg =
 // How we update our Model on a given Msg?
 let update (msg:Msg) (model:Model) : Model*Cmd<Msg>=
     match msg with
-    | Loaded model ->
-        model, []
+    | Loaded entries ->
+        { model with entries = entries }, []
 
     | Failure err ->
         console.error(err)
@@ -63,7 +71,7 @@ let update (msg:Msg) (model:Model) : Model*Cmd<Msg>=
         let xs = if System.String.IsNullOrEmpty model.field then
                     model.entries
                  else
-                    model.entries @ [newEntry model.field model.uid]
+                    Array.append model.entries [| newEntry model.field model.uid |]
         { model with
             uid = model.uid + 1
             field = ""
@@ -78,28 +86,28 @@ let update (msg:Msg) (model:Model) : Model*Cmd<Msg>=
     | UpdateEntry (id,task) ->
         let updateEntry t =
           if t.id = id then { t with description = task } else t
-        { model with entries = List.map updateEntry model.entries }, []
+        { model with entries = Array.map updateEntry model.entries }, []
 
     | Delete id ->
-        { model with entries = List.filter (fun t -> t.id <> id) model.entries }, []
+        { model with entries = Array.filter (fun t -> t.id <> id) model.entries }, []
 
     | DeleteComplete ->
-        { model with entries = List.filter (fun t -> not t.completed) model.entries }, []
+        { model with entries = Array.filter (fun t -> not t.completed) model.entries }, []
 
     | Check (id,isCompleted) ->
         let updateEntry t =
           if t.id = id then { t with completed = isCompleted } else t
-        { model with entries = List.map updateEntry model.entries }, []
+        { model with entries = Array.map updateEntry model.entries }, []
 
     | CheckAll isCompleted ->
         let updateEntry t = { t with completed = isCompleted }
-        { model with entries = List.map updateEntry model.entries }, []
+        { model with entries = Array.map updateEntry model.entries }, []
 
     | ChangeVisibility visibility ->
         { model with visibility = visibility }, []
 
 let load () =
-    let x () = Thoth.Fetch.Fetch.fetchAs<Model> "api/model"
+    let x () = Thoth.Fetch.Fetch.fetchAs<Entry []> "api/model"
     Cmd.OfPromise.either x () Loaded (string >> Failure)
 
 
@@ -108,7 +116,7 @@ let init () = emptyModel, load ()
 let save (model: Model) : Cmd<Msg> =
     let x (model : Model) =
         promise {
-            let! (m: Model) = Thoth.Fetch.Fetch.post ("/api/save", model)
+            let! (m: Model) = Thoth.Fetch.Fetch.post ("/api/save", model.entries)
             console.info m
             return ()
         }
@@ -191,10 +199,10 @@ let viewEntries visibility model dispatch =
         | _ -> true
 
     let allCompleted =
-        List.forall (fun t -> t.completed) entries
+        Array.forall (fun t -> t.completed) entries
 
     let cssVisibility =
-        if List.isEmpty entries then "hidden" else "visible"
+        if Array.isEmpty entries then "hidden" else "visible"
 
     section
       [ ClassName "main"
@@ -211,8 +219,8 @@ let viewEntries visibility model dispatch =
         ul
           [ ClassName "todo-list" ]
           (entries
-           |> List.filter isVisible
-           |> List.map (fun i -> lazyView2 viewEntry (i, model.editing = Some i.id) dispatch)) ]
+           |> Array.filter isVisible
+           |> Array.map (fun i -> lazyView2 viewEntry (i, model.editing = Some i.id) dispatch)) ]
 
 // VIEW CONTROLS AND FOOTER
 let visibilitySwap uri visibility actualVisibility dispatch =
@@ -250,15 +258,15 @@ let viewControlsClear entriesCompleted dispatch =
 let viewControls visibility entries dispatch =
   let entriesCompleted =
       entries
-      |> List.filter (fun t -> t.completed)
-      |> List.length
+      |> Array.filter (fun t -> t.completed)
+      |> Array.length
 
   let entriesLeft =
-      List.length entries - entriesCompleted
+      Array.length entries - entriesCompleted
 
   footer
       [ ClassName "footer"
-        Hidden (List.isEmpty entries) ]
+        Hidden (Array.isEmpty entries) ]
       [ lazyView viewControlsCount entriesLeft
         lazyView2 viewControlsFilters visibility dispatch
         lazyView2 viewControlsClear entriesCompleted dispatch ]
