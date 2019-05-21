@@ -1,3 +1,4 @@
+open System
 open System.IO
 open System.Threading.Tasks
 
@@ -7,6 +8,7 @@ open FSharp.Control.Tasks.V2
 open Giraffe
 open Saturn
 open Shared
+open Thoth.Json.Net
 
 open Microsoft.WindowsAzure.Storage
 
@@ -23,6 +25,41 @@ let configureAzure (services:IServiceCollection) =
     tryGetEnv "APPINSIGHTS_INSTRUMENTATIONKEY"
     |> Option.map services.AddApplicationInsightsTelemetry
     |> Option.defaultValue services
+
+module Azure =
+    let blobClient =
+        storageAccount.CreateCloudBlobClient()
+    let containerName = "todo-mvc-container"
+    let blobRef =
+        blobClient.GetContainerReference containerName
+    let leaseTime = TimeSpan.FromSeconds 15.
+
+    let blob =
+        task {
+            let! _ = blobRef.CreateIfNotExistsAsync ()
+            let file =
+                blobRef.GetBlockBlobReference "todos.json"
+            let! exists = file.ExistsAsync()
+            if not exists then do! file.UploadTextAsync "[]"
+            return file
+        }
+        |> Async.AwaitTask
+        |> Async.RunSynchronously
+
+    let getTextFromBlob () =
+        blob.DownloadTextAsync ()
+
+    let saveTextToBlob text =
+        task {
+            let! lease =
+                blob.AcquireLeaseAsync(
+                    Nullable.op_Implicit leaseTime, null)
+            let condition =
+                AccessCondition.GenerateLeaseCondition lease
+            do! blob.UploadTextAsync(
+                    text, condition, null, null)
+            do! blob.ReleaseLeaseAsync condition
+        }
 
 // interesting part starts here
 
