@@ -69,6 +69,17 @@ let init () =
 
 let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     match msg with
+    | Failure msg ->
+        console.error msg
+        model, Cmd.none
+    | EditingEntry (id, editing) ->
+        { model with Editing = if editing then Some id else None }, Cmd.none
+    | UpdateEntry (id, value) ->
+        let update entry =
+            if entry.Id = id then { entry with Description = value } else entry
+        { model with Entries = Array.map update model.Entries }, Cmd.none
+    | DeleteComplete ->
+        { model with Entries = model.Entries |> Array.filter (fun e -> not e.IsCompleted) }, Cmd.none
     | Loaded entries ->
         { model with
             Entries = entries
@@ -84,8 +95,9 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
             NextId = model.NextId + 1
             Field = ""
             Entries = xs }, []
-    | _ ->
-        model, Cmd.none
+    | CheckAll isCompleted ->
+        let updateEntry t = { t with IsCompleted = isCompleted }
+        { model with Entries = Array.map updateEntry model.Entries }, []
 
 let updateWithSave (msg:Msg) (model:Model) =
   match msg with
