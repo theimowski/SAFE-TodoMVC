@@ -21,11 +21,6 @@ let port =
     "SERVER_PORT"
     |> tryGetEnv |> Option.map uint16 |> Option.defaultValue 8085us
 
-type Entry =
-    { Id : int
-      Description : string
-      IsCompleted : bool }
-
 module Azure =
     let blobClient = storageAccount.CreateCloudBlobClient()
     let containerName = "todo-mvc-container"

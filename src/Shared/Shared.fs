@@ -1,4 +1,6 @@
 namespace Shared
 
-type Counter = { Value : int }
-
+type Entry =
+    { Id : int
+      Description : string
+      IsCompleted : bool }
