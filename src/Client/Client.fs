@@ -52,6 +52,18 @@ let newEntry desc id =
     IsCompleted = false
     Id = id }
 
+let load () : JS.Promise<Entry []>  =
+    promise {
+        let! entries = Fetch.fetchAs<Entry []> "api/entries"
+        return entries
+    }
+
+let save (entries : Entry []) : JS.Promise<unit> =
+    promise {
+        let! (msg : string) = Fetch.post ("/api/entries", entries)
+        return ()
+    }
+
 let init () =
     emptyModel, Cmd.OfPromise.either load () Loaded (string >> Failure)
 
