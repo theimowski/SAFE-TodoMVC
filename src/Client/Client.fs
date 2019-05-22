@@ -1,7 +1,10 @@
 module Client
 
+open Browser
+open Browser.Types
 open Elmish
 open Elmish.React
+open Fable.Core
 open Fable.React
 open Fable.React.Props
 open Fetch.Types
@@ -10,49 +13,158 @@ open Thoth.Json
 
 open Shared
 
-// The model holds data that you want to keep track of while the application is running
-// in this case, we are keeping track of a counter
-// we mark it as optional, because initially it will not be available from the client
-// the initial value will be requested from server
-type Model = { Counter: Counter option }
+let [<Literal>] ENTER_KEY = 13.
 
-// The Msg type defines what events/actions can occur while the application is running
-// the state of the application changes *only* in reaction to these events
+// Entry type comes from Shared module
+type Model =
+  { Entries : Entry []
+    Field : string
+    NextId : int }
+
 type Msg =
-| Increment
-| Decrement
-| InitialCountLoaded of Counter
+    | Loaded of Entry []
+    | Failure of string
+    | UpdateField of string
+    | Add
 
+let emptyModel =
+  { Entries = [||]
+    Field = ""
+    NextId = 0 }
 
+let newEntry desc id =
+  { Description = desc
+    IsCompleted = false
+    Id = id }
 
-let initialCounter () = Fetch.fetchAs<Counter> "/api/init"
+let load () =
+    promise {
+        return [||]
+    }
 
-// defines the initial state and initial command (= side-effect) of the application
-let init () : Model * Cmd<Msg> =
-    let initialModel = { Counter = None }
-    let loadCountCmd =
-        Cmd.OfPromise.perform initialCounter () InitialCountLoaded
-    initialModel, loadCountCmd
+let save _ =
+    promise {
+        return ()
+    }
 
+let init () =
+    emptyModel, Cmd.OfPromise.either load () Loaded (string >> Failure)
 
+let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
+    match msg with
+    | Loaded entries ->
+        { model with
+            Entries = entries
+            NextId =
+                if entries.Length = 0 then 0
+                else
+                    entries |> Array.map (fun e -> e.Id) |> Array.max |> (+) 1 }, Cmd.none
+    | Failure e ->
+        console.error e
+        model, Cmd.none
+    | UpdateField str ->
+      { model with Field = str }, Cmd.none
+    | Add ->
+        let xs = if System.String.IsNullOrEmpty model.Field then
+                    model.Entries
+                 else
+                    Array.append model.Entries [| newEntry model.Field model.NextId |]
+        { model with
+            NextId = model.NextId + 1
+            Field = ""
+            Entries = xs }, []
 
-// The update function computes the next state of the application based on the current state and the incoming events/messages
-// It can also run side-effects (encoded as commands) like calling the server via Http.
-// these commands in turn, can dispatch messages to which the update function will react.
-let update (msg : Msg) (currentModel : Model) : Model * Cmd<Msg> =
-    match currentModel.Counter, msg with
-    | Some counter, Increment ->
-        let nextModel = { currentModel with Counter = Some { Value = counter.Value + 1 } }
-        nextModel, Cmd.none
-    | Some counter, Decrement ->
-        let nextModel = { currentModel with Counter = Some { Value = counter.Value - 1 } }
-        nextModel, Cmd.none
-    | _, InitialCountLoaded initialCount->
-        let nextModel = { Counter = Some initialCount }
-        nextModel, Cmd.none
+let updateWithSave (msg:Msg) (model:Model) =
+  match msg with
+  | _ ->
+    let (newModel, cmds) = update msg model
+    let cmd =
+        if newModel.Entries <> model.Entries
+        then Cmd.OfPromise.attempt save newModel.Entries (string >> Failure)
+        else Cmd.none
+    newModel, Cmd.batch [ cmd; cmds ]
 
-    | _ -> currentModel, Cmd.none
+open Fable.Core.JsInterop
+open Fable.React
+open Fable.React.Props
+open Elmish.React
 
+let internal onEnter msg dispatch =
+    function
+    | (ev:KeyboardEvent) when ev.keyCode = ENTER_KEY ->
+        ev.target?value <- ""
+        dispatch msg
+    | _ -> ()
+    |> OnKeyDown
+
+let viewInput (model:string) dispatch =
+    header [ ClassName "header" ] [
+        h1 [] [ str "todos" ]
+        input [
+            ClassName "new-todo"
+            Placeholder "What needs to be done?"
+            valueOrDefault model
+            onEnter Add dispatch
+            OnChange (fun (ev:Event) -> !!ev.target?value |> UpdateField |> dispatch)
+            AutoFocus true
+        ]
+    ]
+
+let internal classList classes =
+    classes
+    |> List.fold (fun complete -> function | (name,true) -> complete + " " + name | _ -> complete) ""
+    |> ClassName
+
+let viewEntry (todo) dispatch =
+  li
+    [ classList [ ("completed", todo.IsCompleted) ] ]
+    [ div
+        [ ClassName "view" ]
+        [ label
+            [ ]
+            [ str todo.Description ] ]
+      input
+        [ ClassName "edit"
+          DefaultValue todo.Description
+          Name "title"
+          Id ("todo-" + (string todo.Id)) ]
+    ]
+
+let viewEntries model dispatch =
+    let entries = model.Entries
+    let cssVisibility =
+        if Array.isEmpty entries then "hidden" else "visible"
+
+    section
+      [ ClassName "main"
+        Style [ Visibility cssVisibility ]]
+      [ ul
+          [ ClassName "todo-list" ]
+          (entries
+           |> Array.map (fun i -> lazyView2 viewEntry i dispatch)) ]
+
+let viewControlsCount entriesLeft =
+  let item =
+      if entriesLeft = 1 then " item" else " items"
+
+  span
+      [ ClassName "todo-count" ]
+      [ strong [] [ str (string entriesLeft) ]
+        str (item + " left") ]
+
+let viewControls visibility entries dispatch =
+  let entriesCompleted =
+      entries
+      |> Array.filter (fun t -> t.IsCompleted)
+      |> Array.length
+
+  let entriesLeft =
+      Array.length entries - entriesCompleted
+
+  footer
+      [ ClassName "footer"
+        Hidden (Array.isEmpty entries) ]
+      [ lazyView viewControlsCount entriesLeft ]
 
 let safeComponents =
     let components =
@@ -66,30 +178,29 @@ let safeComponents =
            ]
 
     span [ ]
-        [ strong [] [ str "SAFE Template" ]
+        [ strong [] [ str "SAFE Todo MVC" ]
           str " powered by: "
           components ]
 
-let show = function
-| { Counter = Some counter } -> string counter.Value
-| { Counter = None   } -> "Loading..."
+let infoFooter =
+  footer [ ClassName "info" ]
+    [ safeComponents ]
 
-let view (model : Model) (dispatch : Msg -> unit) =
-    div []
-        [ h1 [] [ str "SAFE Template" ]
-          p  [] [ str "The initial counter is fetched from server" ]
-          p  [] [ str "Press buttons to manipulate counter:" ]
-          button [ OnClick (fun _ -> dispatch Decrement) ] [ str "-" ]
-          div [] [ str (show model) ]
-          button [ OnClick (fun _ -> dispatch Increment) ] [ str "+" ]
-          safeComponents ]
+let view model dispatch =
+  div
+    [ ClassName "todomvc-wrapper"]
+    [ section
+        [ ClassName "todoapp" ]
+        [ lazyView2 viewInput model.Field dispatch
+          lazyView2 viewEntries model dispatch ]
+      infoFooter ]
 
 #if DEBUG
 open Elmish.Debug
 open Elmish.HMR
 #endif
 
-Program.mkProgram init update view
+Program.mkProgram init updateWithSave view
 #if DEBUG
 |> Program.withConsoleTrace
 #endif

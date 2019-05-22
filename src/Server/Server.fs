@@ -59,11 +59,6 @@ module Azure =
 
 // HttpFunc : HttpContext -> Task<HttpContext option>
 
-type Entry =
-    { Description : string
-      Id : int
-      IsCompleted : bool }
-
 let sampleEntry : Entry =
     { Description = "prepare slides"
       Id = 1
