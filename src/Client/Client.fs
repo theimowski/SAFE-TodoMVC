@@ -78,6 +78,14 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         let update entry =
             if entry.Id = id then { entry with Description = value } else entry
         { model with Entries = Array.map update model.Entries }, Cmd.none
+    | Check (id, isCompleted) ->
+        let update entry =
+            if entry.Id = id then { entry with IsCompleted = isCompleted } else entry
+        { model with Entries = model.Entries |> Array.map update }, Cmd.none
+    | Delete id ->
+        { model with Entries = model.Entries |> Array.filter (fun e -> e.Id <> id) }, Cmd.none
+    | ChangeVisibility visibility ->
+        { model with Visibility = visibility }, Cmd.none
     | DeleteComplete ->
         { model with Entries = model.Entries |> Array.filter (fun e -> not e.IsCompleted) }, Cmd.none
     | Loaded entries ->
