@@ -73,12 +73,14 @@ let mutable db = [ sampleEntry ]
 
 let loadEntries () : Task<Entry list> =
     task {
-        return db
+        let! raw = Azure.getTextFromBlob()
+        return Decode.Auto.unsafeFromString raw
     }
 
 let saveEntries (entries) : Task<unit> =
     task {
-        db <- entries
+        let raw = Encode.Auto.toString (0, entries)
+        do! Azure.saveTextToBlob raw
     }
 
 let webApp = router {
