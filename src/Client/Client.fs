@@ -39,11 +39,15 @@ let newEntry desc id =
 
 let load () =
     promise {
-        return [||]
+        let! entries =
+            Fetch.fetchAs<Entry []> "api/entries"
+        return entries
     }
 
-let save _ =
+let save (entries: Entry []) =
     promise {
+        let! msg =
+            Fetch.post("/api/entries", entries)
         return ()
     }
 
