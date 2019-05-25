@@ -28,11 +28,39 @@ let configureAzure (services:IServiceCollection) =
 
 // HttpFunc : HttpContext -> Task<HttpContext option>
 
+type Entry =
+    { Description : string
+      Id : int
+      IsCompleted : bool }
+
+let sampleEntry : Entry =
+    { Description = "prepare slides"
+      Id = 1
+      IsCompleted = false }
+
+let mutable db = [ sampleEntry ]
+
+let loadEntries () : Task<Entry list> =
+    task {
+        return db
+    }
+
+let saveEntries (entries) : Task<unit> =
+    task {
+        db <- entries
+    }
+
 let webApp = router {
-    get "/api/init" (fun next ctx ->
+    get "/api/entries" (fun next ctx ->
         task {
-            let counter = { Value = 42 }
-            return! json counter next ctx
+            let! entries = loadEntries ()
+            return! json entries next ctx
+        })
+    post "/api/entries" (fun next ctx ->
+        task {
+            let! entries = ctx.BindModelAsync<Entry list>()
+            do! saveEntries entries
+            return! json "Saved!" next ctx
         })
 }
 
