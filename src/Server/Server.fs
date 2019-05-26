@@ -65,11 +65,6 @@ module Azure =
 
 // HttpFunc : HttpContext -> Task<HttpContext option>
 
-type Todo =
-    { Id : int
-      Description : string
-      IsCompleted : bool }
-
 let load () : Task<Todo list> =
     task {
         let! raw = Azure.getTextFromBlob()
