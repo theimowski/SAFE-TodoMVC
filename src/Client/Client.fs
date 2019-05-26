@@ -26,6 +26,8 @@ type Msg =
     | Failure of string
     | UpdateField of string
     | Add
+    | Check of Entry
+    | Destroy of Entry
 
 let emptyModel =
   { Entries = [||]
@@ -77,6 +79,16 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
             NextId = model.NextId + 1
             Field = ""
             Entries = xs }, []
+    | Check todo ->
+        let check entry =
+            if entry.Id = todo.Id then
+                { entry with IsCompleted = not entry.IsCompleted }
+            else entry
+        { model with Entries = Array.map check model.Entries }, Cmd.none
+    | Destroy todo ->
+        { model with
+            Entries =
+            Array.filter (fun e -> e.Id <> todo.Id) model.Entries}, Cmd.none
 
 let updateWithSave (msg:Msg) (model:Model) =
   match msg with
@@ -124,9 +136,18 @@ let viewEntry (todo) dispatch =
     [ classList [ ("completed", todo.IsCompleted) ] ]
     [ div
         [ ClassName "view" ]
-        [ label
+        [ input
+            [ ClassName "toggle"
+              Type "checkbox"
+              Checked todo.IsCompleted
+              OnChange (fun _ -> dispatch (Check todo)) ]
+          label
             [ ]
-            [ str todo.Description ] ]
+            [ str todo.Description ]
+          button
+            [ ClassName "destroy"
+              OnClick (fun _ -> dispatch (Destroy todo)) ]
+            [ ] ]
       input
         [ ClassName "edit"
           DefaultValue todo.Description
