@@ -157,8 +157,8 @@ let view model dispatch =
     [ ClassName "todomvc-wrapper"]
     [ section
         [ ClassName "todoapp" ]
-        [ lazyView2 viewInput model.Field dispatch
-          lazyView2 viewTodos model dispatch ] ]
+        [ viewInput model.Field dispatch
+          viewTodos model dispatch ] ]
 
 #if DEBUG
 open Elmish.Debug
