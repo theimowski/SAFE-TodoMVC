@@ -115,8 +115,25 @@ open Elmish.Debug
 open Elmish.HMR
 #endif
 
+let load =
+    promise {
+        return! Fetch.fetchAs<Todo list> "/api/todos"
+    }
+
+let save (todos : Todo list) =
+    promise {
+        let! msg = Fetch.post ("/api/todos", todos)
+        return ()
+    }
+
+let updateAndSave msg model =
+    let newModel = update msg model
+    if newModel.Todos <> model.Todos then
+        Promise.start (save newModel.Todos)
+    newModel
+
 let run todos =
-    Program.mkSimple init update view
+    Program.mkSimple init updateAndSave view
     #if DEBUG
     |> Program.withConsoleTrace
     #endif
@@ -126,4 +143,5 @@ let run todos =
     #endif
     |> Program.runWith todos
 
-run [ ]
+load.``then``(fun todos -> run todos)
+|> Promise.start
