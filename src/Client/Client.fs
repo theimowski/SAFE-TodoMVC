@@ -1,52 +1,36 @@
 module Client
 
-open Browser
 open Browser.Types
 open Elmish
 open Elmish.React
-open Fable.Core
+open Fable.Core.JsInterop
 open Fable.React
 open Fable.React.Props
-open Fetch.Types
 open Thoth.Fetch
-open Thoth.Json
 
 open Shared
 
-let [<Literal>] ENTER_KEY = 13.
-
 // Entry type comes from Shared module
 type Model =
-  { Entries : Entry []
+  { Entries : Entry list
     Field : string
     NextId : int }
 
 type Msg =
-    | Loaded of Entry []
-    | Failure of string
+    | Loaded of Entry list
     | UpdateField of string
     | Add
-    | Check of Entry
+    | Toggle of Entry
     | Destroy of Entry
-
-let emptyModel =
-  { Entries = [||]
-    Field = ""
-    NextId = 0 }
-
-let newEntry desc id =
-  { Description = desc
-    IsCompleted = false
-    Id = id }
 
 let load () =
     promise {
         let! entries =
-            Fetch.fetchAs<Entry []> "api/entries"
+            Fetch.fetchAs<Entry list> "api/entries"
         return entries
     }
 
-let save (entries: Entry []) =
+let save (entries: Entry list) =
     promise {
         let! msg =
             Fetch.post("/api/entries", entries)
@@ -54,64 +38,69 @@ let save (entries: Entry []) =
     }
 
 let init () =
-    emptyModel, Cmd.OfPromise.either load () Loaded (string >> Failure)
+    let model : Model =
+        { Entries = []
+          Field = ""
+          NextId = 0 }
 
-let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
+    model
+
+let nextId (entries : Entry list) =
+    if entries.Length = 0 then 0
+    else
+        entries
+        |> List.map (fun entry -> entry.Id)
+        |> List.max
+        |> (+) 1
+
+let addEntry model =
+    let newEntry =
+      { Description = model.Field
+        IsCompleted = false
+        Id = model.NextId }
+    List.append model.Entries [ newEntry ]
+
+let update (msg : Msg) (model : Model) : Model =
     match msg with
     | Loaded entries ->
         { model with
             Entries = entries
-            NextId =
-                if entries.Length = 0 then 0
-                else
-                    entries |> Array.map (fun e -> e.Id) |> Array.max |> (+) 1 }, Cmd.none
-    | Failure e ->
-        console.error e
-        model, Cmd.none
-    | UpdateField str ->
-      { model with Field = str }, Cmd.none
+            NextId = nextId entries }
+    | UpdateField value ->
+        { model with Field = value }
     | Add ->
-        let xs = if System.String.IsNullOrEmpty model.Field then
-                    model.Entries
-                 else
-                    Array.append model.Entries [| newEntry model.Field model.NextId |]
+        { NextId = model.NextId + 1
+          Field = ""
+          Entries = addEntry model }
+    | Toggle todo ->
+        let toggle t =
+            if t.Id <> todo.Id then t
+            else { t with IsCompleted = not t.IsCompleted }
         { model with
-            NextId = model.NextId + 1
-            Field = ""
-            Entries = xs }, []
-    | Check todo ->
-        let check entry =
-            if entry.Id = todo.Id then
-                { entry with IsCompleted = not entry.IsCompleted }
-            else entry
-        { model with Entries = Array.map check model.Entries }, Cmd.none
+            Entries = List.map toggle model.Entries }
     | Destroy todo ->
+        let predicate t = t.Id <> todo.Id
         { model with
-            Entries =
-            Array.filter (fun e -> e.Id <> todo.Id) model.Entries}, Cmd.none
+            Entries = List.filter predicate model.Entries }
 
-let updateWithSave (msg:Msg) (model:Model) =
+let updateAndSave (msg:Msg) (model:Model) =
   match msg with
   | _ ->
-    let (newModel, cmds) = update msg model
-    let cmd =
-        if newModel.Entries <> model.Entries
-        then Cmd.OfPromise.attempt save newModel.Entries (string >> Failure)
-        else Cmd.none
-    newModel, Cmd.batch [ cmd; cmds ]
+    let newModel = update msg model
+    if newModel.Entries <> model.Entries
+    then Promise.start (save newModel.Entries)
+    newModel
 
-open Fable.Core.JsInterop
-open Fable.React
-open Fable.React.Props
-open Elmish.React
+let [<Literal>] ENTER_KEY = 13.
 
 let internal onEnter msg dispatch =
     function
     | (ev:KeyboardEvent) when ev.keyCode = ENTER_KEY ->
-        ev.target?value <- ""
         dispatch msg
     | _ -> ()
     |> OnKeyDown
+
+// VIEW
 
 let viewInput (model:string) dispatch =
     header [ ClassName "header" ] [
@@ -126,11 +115,6 @@ let viewInput (model:string) dispatch =
         ]
     ]
 
-let internal classList classes =
-    classes
-    |> List.fold (fun complete -> function | (name,true) -> complete + " " + name | _ -> complete) ""
-    |> ClassName
-
 let viewEntry (todo) dispatch =
   li
     [ classList [ ("completed", todo.IsCompleted) ] ]
@@ -140,7 +124,7 @@ let viewEntry (todo) dispatch =
             [ ClassName "toggle"
               Type "checkbox"
               Checked todo.IsCompleted
-              OnChange (fun _ -> dispatch (Check todo)) ]
+              OnChange (fun _ -> dispatch (Toggle todo)) ]
           label
             [ ]
             [ str todo.Description ]
@@ -158,7 +142,7 @@ let viewEntry (todo) dispatch =
 let viewEntries model dispatch =
     let entries = model.Entries
     let cssVisibility =
-        if Array.isEmpty entries then "hidden" else "visible"
+        if List.isEmpty entries then "hidden" else "visible"
 
     section
       [ ClassName "main"
@@ -166,50 +150,7 @@ let viewEntries model dispatch =
       [ ul
           [ ClassName "todo-list" ]
           (entries
-           |> Array.map (fun i -> lazyView2 viewEntry i dispatch)) ]
-
-let viewControlsCount entriesLeft =
-  let item =
-      if entriesLeft = 1 then " item" else " items"
-
-  span
-      [ ClassName "todo-count" ]
-      [ strong [] [ str (string entriesLeft) ]
-        str (item + " left") ]
-
-let viewControls visibility entries dispatch =
-  let entriesCompleted =
-      entries
-      |> Array.filter (fun t -> t.IsCompleted)
-      |> Array.length
-
-  let entriesLeft =
-      Array.length entries - entriesCompleted
-
-  footer
-      [ ClassName "footer"
-        Hidden (Array.isEmpty entries) ]
-      [ lazyView viewControlsCount entriesLeft ]
-
-let safeComponents =
-    let components =
-        span [ ]
-           [
-             a [ Href "https://saturnframework.github.io" ] [ str "Saturn" ]
-             str ", "
-             a [ Href "http://fable.io" ] [ str "Fable" ]
-             str ", "
-             a [ Href "https://elmish.github.io/elmish/" ] [ str "Elmish" ]
-           ]
-
-    span [ ]
-        [ strong [] [ str "SAFE Todo MVC" ]
-          str " powered by: "
-          components ]
-
-let infoFooter =
-  footer [ ClassName "info" ]
-    [ safeComponents ]
+           |> List.map (fun i -> lazyView2 viewEntry i dispatch)) ]
 
 let view model dispatch =
   div
@@ -217,15 +158,15 @@ let view model dispatch =
     [ section
         [ ClassName "todoapp" ]
         [ lazyView2 viewInput model.Field dispatch
-          lazyView2 viewEntries model dispatch ]
-      infoFooter ]
+          lazyView2 viewEntries model dispatch ] ]
 
 #if DEBUG
 open Elmish.Debug
 open Elmish.HMR
 #endif
 
-Program.mkProgram init updateWithSave view
+Program.mkSimple init updateAndSave view
+|> Program.withSubscription (fun _ -> Cmd.OfPromise.perform load () Loaded)
 #if DEBUG
 |> Program.withConsoleTrace
 #endif
