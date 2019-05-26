@@ -70,21 +70,16 @@ type Todo =
       Description : string
       IsCompleted : bool }
 
-let sampleTodo : Todo =
-    { Id = 0
-      Description = "implement server side with Saturn"
-      IsCompleted = false }
-
-let mutable database = [ sampleTodo ]
-
 let load () : Task<Todo list> =
     task {
-        return database
+        let! raw = Azure.getTextFromBlob()
+        return Decode.Auto.unsafeFromString raw
     }
 
 let save (todos: Todo list) =
     task {
-        database <- todos
+        let raw = Encode.Auto.toString(1, todos)
+        do! Azure.saveTextToBlob raw
     }
 
 let webApp = router {
