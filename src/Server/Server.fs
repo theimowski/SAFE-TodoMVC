@@ -59,35 +59,28 @@ module Azure =
 
 // HttpFunc : HttpContext -> Task<HttpContext option>
 
-let sampleEntry : Entry =
-    { Description = "prepare slides"
-      Id = 1
-      IsCompleted = false }
-
-let mutable db = [ sampleEntry ]
-
-let loadEntries () : Task<Entry list> =
+let loadTodos () : Task<Todo list> =
     task {
         let! raw = Azure.getTextFromBlob()
         return Decode.Auto.unsafeFromString raw
     }
 
-let saveEntries (entries) : Task<unit> =
+let saveTodos (todos) : Task<unit> =
     task {
-        let raw = Encode.Auto.toString (0, entries)
+        let raw = Encode.Auto.toString (0, todos)
         do! Azure.saveTextToBlob raw
     }
 
 let webApp = router {
-    get "/api/entries" (fun next ctx ->
+    get "/api/todos" (fun next ctx ->
         task {
-            let! entries = loadEntries ()
-            return! json entries next ctx
+            let! todos = loadTodos ()
+            return! json todos next ctx
         })
-    post "/api/entries" (fun next ctx ->
+    post "/api/todos" (fun next ctx ->
         task {
-            let! entries = ctx.BindModelAsync<Entry list>()
-            do! saveEntries entries
+            let! todos = ctx.BindModelAsync<Todo list>()
+            do! saveTodos todos
             return! json "Saved!" next ctx
         })
 }

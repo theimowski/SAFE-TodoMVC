@@ -10,85 +10,85 @@ open Thoth.Fetch
 
 open Shared
 
-// Entry type comes from Shared module
+// Todos type comes from Shared module
 type Model =
-  { Entries : Entry list
+  { Todos : Todo list
     Field : string
     NextId : int }
 
 type Msg =
-    | Loaded of Entry list
+    | Loaded of Todo list
     | UpdateField of string
     | Add
-    | Toggle of Entry
-    | Destroy of Entry
+    | Toggle of Todo
+    | Destroy of Todo
 
 let load () =
     promise {
-        let! entries =
-            Fetch.fetchAs<Entry list> "api/entries"
-        return entries
+        let! todos =
+            Fetch.fetchAs<Todo list> "api/todos"
+        return todos
     }
 
-let save (entries: Entry list) =
+let save (todos: Todo list) =
     promise {
         let! msg =
-            Fetch.post("/api/entries", entries)
+            Fetch.post("/api/todos", todos)
         return ()
     }
 
 let init () =
     let model : Model =
-        { Entries = []
+        { Todos = []
           Field = ""
           NextId = 0 }
 
     model
 
-let nextId (entries : Entry list) =
-    if entries.Length = 0 then 0
+let nextId (todos : Todo list) =
+    if todos.Length = 0 then 0
     else
-        entries
-        |> List.map (fun entry -> entry.Id)
+        todos
+        |> List.map (fun todo -> todo.Id)
         |> List.max
         |> (+) 1
 
-let addEntry model =
-    let newEntry =
+let addTodo model =
+    let newTodo =
       { Description = model.Field
         IsCompleted = false
         Id = model.NextId }
-    List.append model.Entries [ newEntry ]
+    List.append model.Todos [ newTodo ]
 
 let update (msg : Msg) (model : Model) : Model =
     match msg with
-    | Loaded entries ->
+    | Loaded todos ->
         { model with
-            Entries = entries
-            NextId = nextId entries }
+            Todos = todos
+            NextId = nextId todos }
     | UpdateField value ->
         { model with Field = value }
     | Add ->
         { NextId = model.NextId + 1
           Field = ""
-          Entries = addEntry model }
+          Todos = addTodo model }
     | Toggle todo ->
         let toggle t =
             if t.Id <> todo.Id then t
             else { t with IsCompleted = not t.IsCompleted }
         { model with
-            Entries = List.map toggle model.Entries }
+            Todos = List.map toggle model.Todos }
     | Destroy todo ->
         let predicate t = t.Id <> todo.Id
         { model with
-            Entries = List.filter predicate model.Entries }
+            Todos = List.filter predicate model.Todos }
 
 let updateAndSave (msg:Msg) (model:Model) =
   match msg with
   | _ ->
     let newModel = update msg model
-    if newModel.Entries <> model.Entries
-    then Promise.start (save newModel.Entries)
+    if model.Todos <> newModel.Todos
+    then Promise.start (save newModel.Todos)
     newModel
 
 let [<Literal>] ENTER_KEY = 13.
@@ -115,7 +115,7 @@ let viewInput (model:string) dispatch =
         ]
     ]
 
-let viewEntry (todo) dispatch =
+let viewTodo (todo) dispatch =
   li
     [ classList [ ("completed", todo.IsCompleted) ] ]
     [ div
@@ -139,18 +139,18 @@ let viewEntry (todo) dispatch =
           Id ("todo-" + (string todo.Id)) ]
     ]
 
-let viewEntries model dispatch =
-    let entries = model.Entries
+let viewTodos model dispatch =
+    let todos = model.Todos
     let cssVisibility =
-        if List.isEmpty entries then "hidden" else "visible"
+        if List.isEmpty todos then "hidden" else "visible"
 
     section
       [ ClassName "main"
         Style [ Visibility cssVisibility ]]
       [ ul
           [ ClassName "todo-list" ]
-          (entries
-           |> List.map (fun i -> lazyView2 viewEntry i dispatch)) ]
+          (todos
+           |> List.map (fun i -> lazyView2 viewTodo i dispatch)) ]
 
 let view model dispatch =
   div
@@ -158,7 +158,7 @@ let view model dispatch =
     [ section
         [ ClassName "todoapp" ]
         [ lazyView2 viewInput model.Field dispatch
-          lazyView2 viewEntries model dispatch ] ]
+          lazyView2 viewTodos model dispatch ] ]
 
 #if DEBUG
 open Elmish.Debug
