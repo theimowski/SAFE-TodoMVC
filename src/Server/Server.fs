@@ -28,11 +28,39 @@ let configureAzure (services:IServiceCollection) =
 
 // HttpFunc : HttpContext -> Task<HttpContext option>
 
+type Todo =
+    { Id : int
+      Description : string
+      IsCompleted : bool }
+
+let sampleTodo : Todo =
+    { Id = 0
+      Description = "implement server side with Saturn"
+      IsCompleted = false }
+
+let mutable database = [ sampleTodo ]
+
+let load () : Task<Todo list> =
+    task {
+        return database
+    }
+
+let save (todos: Todo list) =
+    task {
+        database <- todos
+    }
+
 let webApp = router {
-    get "/api/init" (fun next ctx ->
+    get "/api/todos" (fun next ctx ->
         task {
-            let counter = { Value = 42 }
-            return! json counter next ctx
+            let! todos = load()
+            return! json todos next ctx
+        })
+    post "/api/todos" (fun next ctx ->
+        task {
+            let! todos = ctx.BindModelAsync<Todo list>()
+            do! save todos
+            return! json "Saved!" next ctx
         })
 }
 
