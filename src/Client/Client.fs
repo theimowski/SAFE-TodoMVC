@@ -12,11 +12,6 @@ open Shared
 
 // Model
 
-type Todo =
-    { Id : int
-      Description : string
-      IsCompleted : bool }
-
 type Model =
   { Todos : Todo list
     Field : string
@@ -27,6 +22,8 @@ type Model =
 type Msg =
     | UpdateField of string
     | Add
+    | Toggle of Todo
+    | Destroy of Todo
 
 // Initial model
 
@@ -60,6 +57,14 @@ let update (msg : Msg) (model : Model) : Model =
         { NextId = model.NextId + 1
           Field = ""
           Todos = addTodo model }
+    | Toggle todo ->
+        let toggle t =
+            if t.Id <> todo.Id then t
+            else { t with IsCompleted = not t.IsCompleted }
+        { model with Todos = List.map toggle model.Todos }
+    | Destroy todo ->
+        let predicate t = t.Id <> todo.Id
+        { model with Todos = List.filter predicate model.Todos }
 
 // Helpers
 
@@ -92,9 +97,18 @@ let viewTodo (todo) dispatch =
     [ classList [ ("completed", todo.IsCompleted) ] ]
     [ div
         [ ClassName "view" ]
-        [ label
+        [ input
+            [ Type "checkbox"
+              ClassName "toggle"
+              Checked todo.IsCompleted
+              OnChange (fun _ -> dispatch (Toggle todo)) ]
+          label
             [ ]
-            [ str todo.Description ] ]
+            [ str todo.Description ]
+          button
+            [ ClassName "destroy"
+              OnClick (fun _ -> dispatch (Destroy todo)) ]
+            [ ] ]
       input
         [ ClassName "edit"
           DefaultValue todo.Description
