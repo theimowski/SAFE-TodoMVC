@@ -22,12 +22,6 @@ type Model =
     Field : string
     NextId : int }
 
-// Messages
-
-type Msg =
-    | UpdateField of string
-    | Add
-
 // Initial model
 
 let nextId (todos : Todo list) =
@@ -42,6 +36,12 @@ let init todos : Model =
     { Todos = todos
       Field = ""
       NextId = nextId todos }
+
+// Messages
+
+type Msg =
+    | UpdateField of string
+    | Add
 
 // Update model
 
