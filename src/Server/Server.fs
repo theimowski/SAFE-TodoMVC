@@ -11,30 +11,33 @@ open Thoth.Json.Net
 
 // boring, environment-variable-based configuration
 
-let tryGetEnv name =
-    System.Environment.GetEnvironmentVariable name
-    |> Option.ofObj
+[<AutoOpen>]
+module Configuration =
 
-let publicPath =
-    tryGetEnv "public_path"
-    |> Option.defaultValue "../Client/public"
-    |> Path.GetFullPath
+    let tryGetEnv name =
+        System.Environment.GetEnvironmentVariable name
+        |> Option.ofObj
 
-let storageAccount =
-    tryGetEnv "STORAGE_CONNECTIONSTRING"
-    |> Option.defaultValue "UseDevelopmentStorage=true"
-    |> CloudStorageAccount.Parse
+    let publicPath =
+        tryGetEnv "public_path"
+        |> Option.defaultValue "../Client/public"
+        |> Path.GetFullPath
 
-let port =
-    "SERVER_PORT"
-    |> tryGetEnv
-    |> Option.map uint16
-    |> Option.defaultValue 8085us
+    let storageAccount =
+        tryGetEnv "STORAGE_CONNECTIONSTRING"
+        |> Option.defaultValue "UseDevelopmentStorage=true"
+        |> CloudStorageAccount.Parse
 
-let configureAzure (services:IServiceCollection) =
-    tryGetEnv "APPINSIGHTS_INSTRUMENTATIONKEY"
-    |> Option.map services.AddApplicationInsightsTelemetry
-    |> Option.defaultValue services
+    let port =
+        "SERVER_PORT"
+        |> tryGetEnv
+        |> Option.map uint16
+        |> Option.defaultValue 8085us
+
+    let configureAzure (services:IServiceCollection) =
+        tryGetEnv "APPINSIGHTS_INSTRUMENTATIONKEY"
+        |> Option.map services.AddApplicationInsightsTelemetry
+        |> Option.defaultValue services
 
 // boring, Azure helper functions
 
