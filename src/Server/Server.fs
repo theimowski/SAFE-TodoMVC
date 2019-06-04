@@ -80,11 +80,6 @@ module Azure =
 
 // HttpFunc : HttpContext -> Task<HttpContext option>
 
-type Todo =
-    { Id : int
-      Description : string
-      IsCompleted : bool }
-
 let load () =
     task {
        let! raw = Azure.getTextFromBlob ()
@@ -97,12 +92,12 @@ let save (todos) =
     }
 
 let webApp = router {
-    get "/api/todos" (fun next ctx ->
+    get Url.todos (fun next ctx ->
         task {
             let! todos = load ()
             return! json todos next ctx
         })
-    post "/api/todos" (fun next ctx ->
+    post Url.todos (fun next ctx ->
         task {
             let! todos = ctx.BindModelAsync<Todo list> ()
             do! save todos

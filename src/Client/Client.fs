@@ -12,11 +12,6 @@ open Shared
 
 // Model
 
-type Todo =
-    { Id : int
-      Description : string
-      IsCompleted : bool }
-
 type Model =
   { Todos : Todo list
     Field : string
@@ -152,12 +147,12 @@ open Elmish.HMR
 
 let load () =
     promise {
-        return! Fetch.fetchAs<Todo list> "/api/todos"
+        return! Fetch.fetchAs<Todo list> Url.todos
     }
 
 let save (todos : Todo list) =
     promise {
-        let! msg = Fetch.post("/api/todos", todos)
+        let! msg = Fetch.post(Url.todos, todos)
         return ()
     }
 
