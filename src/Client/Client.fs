@@ -18,9 +18,9 @@ type Todo =
       IsCompleted : bool }
 
 type Model =
-  { Todos : Todo list
-    Field : string
-    NextId : int }
+    { Todos : Todo list
+      Input : string
+      NextId : int }
 
 // Initial model
 
@@ -34,7 +34,7 @@ let nextId (todos : Todo list) =
 
 let init todos : Model =
     { Todos = todos
-      Field = ""
+      Input = ""
       NextId = nextId todos }
 
 // Messages
@@ -47,7 +47,7 @@ type Msg =
 
 let addTodo model =
     let newTodo =
-      { Description = model.Field
+      { Description = model.Input
         IsCompleted = false
         Id = model.NextId }
     List.append model.Todos [ newTodo ]
@@ -55,10 +55,10 @@ let addTodo model =
 let update (msg : Msg) (model : Model) : Model =
     match msg with
     | UpdateField value ->
-        { model with Field = value }
+        { model with Input = value }
     | Add ->
         { NextId = model.NextId + 1
-          Field = ""
+          Input = ""
           Todos = addTodo model }
 
 // Helpers
@@ -121,7 +121,7 @@ let view model dispatch =
     [ ClassName "todomvc-wrapper"]
     [ section
         [ ClassName "todoapp" ]
-        [ viewInput model.Field dispatch
+        [ viewInput model.Input dispatch
           viewTodos model dispatch ] ]
 
 // Main
