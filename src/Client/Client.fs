@@ -131,10 +131,15 @@ open Elmish.Debug
 open Elmish.HMR
 #endif
 
+let save (todos: Todo list) =
+    promise {
+        return! Fetch.post<_,string>("/api/todos", todos)
+    }
+
 let updateAndSave msg model =
     let newModel = update msg model
     if newModel.Todos <> model.Todos then
-        () // TODO: save model
+        newModel.Todos |> save |> Promise.start
     newModel
 
 let run todos =
@@ -148,4 +153,10 @@ let run todos =
     #endif
     |> Program.runWith todos
 
-run [ ]
+let loadAndRun () =
+    promise {
+        let! todos = Fetch.fetchAs<Todo list> "/api/todos"
+        run todos
+    }
+
+loadAndRun () |> Promise.start
