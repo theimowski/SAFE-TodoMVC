@@ -42,6 +42,8 @@ let init todos : Model =
 type Msg =
     | UpdateField of string
     | Add
+    | Toggle of int
+    | Destroy of int
 
 // Update model
 
@@ -60,6 +62,15 @@ let update (msg : Msg) (model : Model) : Model =
         { NextId = model.NextId + 1
           Input = ""
           Todos = addTodo model }
+    | Toggle id ->
+        let toggle todo =
+            if todo.Id <> id then todo
+            else
+              { todo with IsCompleted = not todo.IsCompleted }
+        { model with Todos = List.map toggle model.Todos }
+    | Destroy id ->
+        let filter todo = todo.Id <> id
+        { model with Todos = List.filter filter model.Todos }
 
 // Helpers
 
@@ -92,9 +103,18 @@ let viewTodo (todo) dispatch =
     [ classList [ ("completed", todo.IsCompleted) ] ]
     [ div
         [ ClassName "view" ]
-        [ label
+        [ input
+            [ Type "checkbox"
+              ClassName "toggle"
+              Checked todo.IsCompleted
+              OnChange (fun _ -> Toggle todo.Id |> dispatch) ]
+          label
             [ ]
-            [ str todo.Description ] ]
+            [ str todo.Description ]
+          button
+            [ ClassName "destroy"
+              OnClick (fun _ -> Destroy todo.Id |> dispatch) ]
+            [ ] ]
       input
         [ ClassName "edit"
           DefaultValue todo.Description
