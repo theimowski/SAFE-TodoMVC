@@ -12,15 +12,10 @@ open Shared
 
 // Model
 
-type Todo =
-    { Id : int
-      Description : string
-      IsCompleted : bool }
-
 type Model =
-    { Todos : Todo list
-      Input : string
-      NextId : int }
+        { Todos : Todo list
+          Input : string
+          NextId : int }
 
 // Initial model
 
@@ -42,6 +37,8 @@ let init todos : Model =
 type Msg =
     | UpdateField of string
     | Add
+    | Toggle of id: int
+    | Destroy of id: int
 
 // Update model
 
@@ -60,6 +57,15 @@ let update (msg : Msg) (model : Model) : Model =
         { NextId = model.NextId + 1
           Input = ""
           Todos = addTodo model }
+    | Toggle id ->
+        let toggle todo =
+            if todo.Id <> id then todo
+            else
+              { todo with IsCompleted = not todo.IsCompleted }
+        { model with Todos = List.map toggle model.Todos }
+    | Destroy id ->
+        let filter todo = todo.Id <> id
+        { model with Todos = List.filter filter model.Todos }
 
 // Helpers
 
@@ -92,9 +98,18 @@ let viewTodo (todo) dispatch =
     [ classList [ ("completed", todo.IsCompleted) ] ]
     [ div
         [ ClassName "view" ]
-        [ label
+        [ input
+            [ Type "checkbox"
+              ClassName "toggle"
+              Checked todo.IsCompleted
+              OnChange (fun _ -> Toggle todo.Id |> dispatch) ]
+          label
             [ ]
-            [ str todo.Description ] ]
+            [ str todo.Description ]
+          button
+            [ ClassName "destroy"
+              OnClick (fun _ -> Destroy todo.Id |> dispatch)]
+            [ ] ]
       input
         [ ClassName "edit"
           DefaultValue todo.Description
@@ -131,10 +146,15 @@ open Elmish.Debug
 open Elmish.HMR
 #endif
 
+let save (todos: Todo list) =
+    promise {
+        return! Fetch.post<_,string>("/api/todos", todos)
+    }
+
 let updateAndSave msg model =
     let newModel = update msg model
     if newModel.Todos <> model.Todos then
-        () // TODO: save model
+        save newModel.Todos |> Promise.start
     newModel
 
 let run todos =
@@ -148,4 +168,10 @@ let run todos =
     #endif
     |> Program.runWith todos
 
-run [ ]
+let loadAndRun () =
+    promise {
+        let! todos = Fetch.fetchAs<Todo list> "/api/todos"
+        run todos
+    }
+
+loadAndRun () |> Promise.start

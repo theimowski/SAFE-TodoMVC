@@ -1,3 +1,6 @@
 namespace Shared
 
-type Counter = { Value : int }
+type Todo =
+    { Id : int
+      Description : string
+      IsCompleted : bool }
