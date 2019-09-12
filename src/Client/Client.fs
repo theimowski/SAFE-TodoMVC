@@ -1,5 +1,6 @@
 module Client
 
+open System
 open Browser.Types
 open Elmish
 open Elmish.React
@@ -13,29 +14,21 @@ open Shared
 // Model
 
 type Todo =
-    { Id : int
+    { Id : Guid
       Description : string
       IsCompleted : bool }
 
 type Model =
     { Todos : Todo list
       Input : string
-      NextId : int }
+      NextId : Guid }
 
 // Initial model
-
-let nextId (todos : Todo list) =
-    if todos.Length = 0 then 0
-    else
-        todos
-        |> List.map (fun todo -> todo.Id)
-        |> List.max
-        |> (+) 1
 
 let init todos : Model =
     { Todos = todos
       Input = ""
-      NextId = nextId todos }
+      NextId = Guid.NewGuid() }
 
 // Messages
 
@@ -49,7 +42,7 @@ let addTodo model =
     let newTodo =
       { Description = model.Input
         IsCompleted = false
-        Id = model.NextId }
+        Id = Guid.NewGuid() }
     List.append model.Todos [ newTodo ]
 
 let update (msg : Msg) (model : Model) : Model =
@@ -57,7 +50,7 @@ let update (msg : Msg) (model : Model) : Model =
     | UpdateField value ->
         { model with Input = value }
     | Add ->
-        { NextId = model.NextId + 1
+        { NextId = Guid.NewGuid()
           Input = ""
           Todos = addTodo model }
 
