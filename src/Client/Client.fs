@@ -38,21 +38,18 @@ type Msg =
 
 // Update model
 
-let addTodo model =
-    let newTodo =
-      { Description = model.Input
-        IsCompleted = false
-        Id = Guid.NewGuid() }
-    List.append model.Todos [ newTodo ]
-
 let update (msg : Msg) (model : Model) : Model =
     match msg with
     | UpdateField value ->
         { model with Input = value }
     | Add ->
+        let newTodo =
+          { Description = model.Input
+            IsCompleted = false
+            Id = Guid.NewGuid() }
         { NextId = Guid.NewGuid()
           Input = ""
-          Todos = addTodo model }
+          Todos = List.append model.Todos [ newTodo ] }
 
 // Helpers
 
