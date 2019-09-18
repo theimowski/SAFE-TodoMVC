@@ -20,15 +20,13 @@ type Todo =
 
 type Model =
     { Todos : Todo list
-      Input : string
-      NextId : Guid }
+      Input : string }
 
 // Initial model
 
 let init todos : Model =
     { Todos = todos
-      Input = ""
-      NextId = Guid.NewGuid() }
+      Input = "" }
 
 // Messages
 
@@ -47,8 +45,7 @@ let update (msg : Msg) (model : Model) : Model =
           { Description = model.Input
             IsCompleted = false
             Id = Guid.NewGuid() }
-        { NextId = Guid.NewGuid()
-          Input = ""
+        { Input = ""
           Todos = List.append model.Todos [ newTodo ] }
 
 // Helpers
