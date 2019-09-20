@@ -31,14 +31,14 @@ let init todos : Model =
 // Messages
 
 type Msg =
-    | UpdateField of string
+    | UpdateInput of string
     | Add
 
 // Update model
 
 let update (msg : Msg) (model : Model) : Model =
     match msg with
-    | UpdateField value ->
+    | UpdateInput value ->
         { model with Input = value }
     | Add ->
         let newTodo =
@@ -69,7 +69,7 @@ let viewInput (model:string) dispatch =
             Placeholder "What needs to be done?"
             valueOrDefault model
             onEnter Add dispatch
-            OnChange (fun (ev:Event) -> !!ev.target?value |> UpdateField |> dispatch)
+            OnChange (fun (ev:Event) -> !!ev.target?value |> UpdateInput |> dispatch)
             AutoFocus true
         ]
     ]
