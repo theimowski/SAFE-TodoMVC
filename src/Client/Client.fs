@@ -26,10 +26,12 @@ type Msg =
     | TodosFetched of Todo list
     | UpdateInput of string
     | AddTodo
+    | TodoAdded of Todo
 
 // Fetch
 
 let fetchTodos () = Fetch.fetchAs<Todo list>("/api/todos")
+let addTodo todo = Fetch.post<Todo, Todo>("/api/todos", todo)
 
 // Initial model and command
 
@@ -53,9 +55,12 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
             { Id = Guid.NewGuid()
               Description = model.Input
               IsCompleted = false }
+        let cmd = Cmd.OfPromise.perform addTodo newTodo TodoAdded
         { model with
             Input = ""
-            Todos = model.Todos @ [ newTodo ]}, Cmd.none
+            Todos = model.Todos @ [ newTodo ]}, cmd
+    | TodoAdded todo ->
+        model, Cmd.none
 
 // View
 

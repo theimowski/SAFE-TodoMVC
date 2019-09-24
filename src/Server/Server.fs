@@ -7,17 +7,18 @@ open Saturn
 
 open Shared
 
-let sampleTodos : Todo list =
+let sampleTodos =
     [ { Id = Guid.NewGuid()
         Description = "get the application up & running"
         IsCompleted = true }
       { Id = Guid.NewGuid()
         Description = "add new Todo"
         IsCompleted = false } ]
+    |> ResizeArray<_>
 
 let load () =
     task {
-        return sampleTodos
+        return sampleTodos |> Seq.toList
     }
 
 let webApp = router {
@@ -25,6 +26,12 @@ let webApp = router {
         task {
             let! todos = load()
             return! json todos next ctx
+        })
+    post "/api/todos" (fun next ctx ->
+        task {
+            let! todo = ctx.BindModelAsync()
+            sampleTodos.Add todo
+            return! json todo next ctx
         })
 }
 
