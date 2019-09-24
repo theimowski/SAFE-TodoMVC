@@ -1,5 +1,8 @@
 module Client
 
+open System
+
+open Browser.Types
 open Elmish
 open Elmish.Debug
 open Elmish.HMR
@@ -22,6 +25,7 @@ type Model =
 type Msg =
     | TodosFetched of Todo list
     | UpdateInput of string
+    | AddTodo
 
 // Fetch
 
@@ -44,11 +48,14 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         { model with Todos = todos }, Cmd.none
     | UpdateInput value ->
         { model with Input = value }, Cmd.none
-
-// Helpers
-
-let onTextChange handler =
-    OnChange (fun e -> e.target?value |> handler)
+    | AddTodo ->
+        let newTodo =
+            { Id = Guid.NewGuid()
+              Description = model.Input
+              IsCompleted = false }
+        { model with
+            Input = ""
+            Todos = model.Todos @ [ newTodo ]}, Cmd.none
 
 // View
 
@@ -59,7 +66,8 @@ let viewInput (model:string) dispatch =
             ClassName "new-todo"
             Placeholder "What needs to be done?"
             valueOrDefault model
-            onTextChange (UpdateInput >> dispatch)
+            OnChange (fun e -> e.target?value |> UpdateInput |> dispatch)
+            OnKeyDown (fun e -> if e.keyCode = 13. then dispatch AddTodo)
             AutoFocus true ] ]
 
 let viewTodo (todo) dispatch =
