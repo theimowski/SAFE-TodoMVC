@@ -1,8 +1,8 @@
 module Client
 
-open System
-open Browser.Types
 open Elmish
+open Elmish.Debug
+open Elmish.HMR
 open Elmish.React
 open Fable.Core.JsInterop
 open Fable.React
@@ -13,53 +13,44 @@ open Shared
 
 // Model
 
-type Todo =
-    { Id : Guid
-      Description : string
-      IsCompleted : bool }
-
 type Model =
     { Todos : Todo list
       Input : string }
 
-// Initial model
-
-let init todos : Model =
-    { Todos = todos
-      Input = "" }
-
 // Messages
 
 type Msg =
+    | TodosFetched of Todo list
     | UpdateInput of string
-    | Add
 
-// Update model
+// Fetch
 
-let update (msg : Msg) (model : Model) : Model =
+let fetchTodos () = Fetch.fetchAs<Todo list>("/api/todos")
+
+// Initial model and command
+
+let init () : Model * Cmd<Msg> =
+    let cmd = Cmd.OfPromise.perform fetchTodos () TodosFetched
+    let model =
+        { Todos = []
+          Input = "" }
+    model, cmd
+
+// Update
+
+let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     match msg with
+    | TodosFetched todos ->
+        { model with Todos = todos }, Cmd.none
     | UpdateInput value ->
-        { model with Input = value }
-    | Add ->
-        let newTodo =
-          { Description = model.Input
-            IsCompleted = false
-            Id = Guid.NewGuid() }
-        { Input = ""
-          Todos = List.append model.Todos [ newTodo ] }
+        { model with Input = value }, Cmd.none
 
 // Helpers
 
-let [<Literal>] ENTER_KEY = 13.
+let onTextChange handler =
+    OnChange (fun e -> e.target?value |> handler)
 
-let internal onEnter msg dispatch =
-    function
-    | (ev:KeyboardEvent) when ev.keyCode = ENTER_KEY ->
-        dispatch msg
-    | _ -> ()
-    |> OnKeyDown
-
-// View (React)
+// View
 
 let viewInput (model:string) dispatch =
     header [ ClassName "header" ] [
@@ -68,11 +59,8 @@ let viewInput (model:string) dispatch =
             ClassName "new-todo"
             Placeholder "What needs to be done?"
             valueOrDefault model
-            onEnter Add dispatch
-            OnChange (fun (ev:Event) -> !!ev.target?value |> UpdateInput |> dispatch)
-            AutoFocus true
-        ]
-    ]
+            onTextChange (UpdateInput >> dispatch)
+            AutoFocus true ] ]
 
 let viewTodo (todo) dispatch =
   li
@@ -81,14 +69,7 @@ let viewTodo (todo) dispatch =
         [ ClassName "view" ]
         [ label
             [ ]
-            [ str todo.Description ] ]
-      input
-        [ ClassName "edit"
-          DefaultValue todo.Description
-          Name "title"
-          Id ("todo-" + (string todo.Id)) ]
-    ]
-
+            [ str todo.Description ] ] ]
 
 let viewTodos model dispatch =
     let todos = model.Todos
@@ -101,7 +82,7 @@ let viewTodos model dispatch =
       [ ul
           [ ClassName "todo-list" ]
           (todos
-           |> List.map (fun i -> viewTodo i dispatch)) ]
+           |> List.map (fun todo -> viewTodo todo dispatch)) ]
 
 let view model dispatch =
   div
@@ -113,26 +94,8 @@ let view model dispatch =
 
 // Main
 
-#if DEBUG
-open Elmish.Debug
-open Elmish.HMR
-#endif
-
-let updateAndSave msg model =
-    let newModel = update msg model
-    if newModel.Todos <> model.Todos then
-        () // TODO: save model
-    newModel
-
-let run todos =
-    Program.mkSimple init updateAndSave view
-    #if DEBUG
-    |> Program.withConsoleTrace
-    #endif
-    |> Program.withReactBatched "elmish-app"
-    #if DEBUG
-    |> Program.withDebugger
-    #endif
-    |> Program.runWith todos
-
-run [ ]
+Program.mkProgram init update view
+|> Program.withConsoleTrace
+|> Program.withReactBatched "elmish-app"
+|> Program.withDebugger
+|> Program.run
