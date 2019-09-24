@@ -13,11 +13,6 @@ open Shared
 
 // Model
 
-type Todo =
-    { Id : Guid
-      Description : string
-      IsCompleted : bool }
-
 type Model =
     { Todos : Todo list
       Input : string }
@@ -33,6 +28,8 @@ let init todos : Model =
 type Msg =
     | UpdateInput of string
     | Add
+    | Toggle of Guid
+    | Destroy of Guid
 
 // Update model
 
@@ -47,6 +44,15 @@ let update (msg : Msg) (model : Model) : Model =
             Id = Guid.NewGuid() }
         { Input = ""
           Todos = List.append model.Todos [ newTodo ] }
+    | Toggle id ->
+        let toggle todo =
+            if todo.Id <> id then todo
+            else
+              { todo with IsCompleted = not todo.IsCompleted }
+        { model with Todos = List.map toggle model.Todos }
+    | Destroy id ->
+        let filter todo = todo.Id <> id
+        { model with Todos = List.filter filter model.Todos }
 
 // Helpers
 
@@ -61,13 +67,13 @@ let internal onEnter msg dispatch =
 
 // View (React)
 
-let viewInput (model:string) dispatch =
+let viewInput (model: Model) dispatch =
     header [ ClassName "header" ] [
         h1 [] [ str "todos" ]
         input [
             ClassName "new-todo"
             Placeholder "What needs to be done?"
-            valueOrDefault model
+            valueOrDefault model.Input
             onEnter Add dispatch
             OnChange (fun (ev:Event) -> !!ev.target?value |> UpdateInput |> dispatch)
             AutoFocus true
@@ -79,9 +85,18 @@ let viewTodo (todo) dispatch =
     [ classList [ ("completed", todo.IsCompleted) ] ]
     [ div
         [ ClassName "view" ]
-        [ label
+        [ input
+            [ Type "checkbox"
+              ClassName "toggle"
+              Checked todo.IsCompleted
+              OnChange (fun _ -> Toggle todo.Id |> dispatch ) ]
+          label
             [ ]
-            [ str todo.Description ] ]
+            [ str todo.Description ]
+          button
+            [ ClassName "destroy"
+              OnClick (fun _ -> Destroy todo.Id |> dispatch)]
+            [ ] ]
       input
         [ ClassName "edit"
           DefaultValue todo.Description
@@ -108,7 +123,7 @@ let view model dispatch =
     [ ClassName "todomvc-wrapper"]
     [ section
         [ ClassName "todoapp" ]
-        [ viewInput model.Input dispatch
+        [ viewInput model dispatch
           viewTodos model dispatch ] ]
 
 // Main
@@ -118,10 +133,17 @@ open Elmish.Debug
 open Elmish.HMR
 #endif
 
+let save (todos: Todo list) =
+    promise {
+        let! _ = Fetch.post<Todo list,string>(Url.todos, todos)
+        return ()
+    }
+
 let updateAndSave msg model =
     let newModel = update msg model
     if newModel.Todos <> model.Todos then
-        () // TODO: save model
+        save newModel.Todos |> Promise.start
+
     newModel
 
 let run todos =
@@ -135,4 +157,10 @@ let run todos =
     #endif
     |> Program.runWith todos
 
-run [ ]
+let loadAndRun () =
+    promise {
+        let! todos = Fetch.fetchAs<Todo list>(Url.todos)
+        run todos
+    }
+
+loadAndRun() |> Promise.start

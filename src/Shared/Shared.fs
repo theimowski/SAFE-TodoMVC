@@ -1,5 +1,13 @@
 namespace Shared
 
-type Counter = { Value : int }
+
+open System
 
 
+type Todo =
+    { Id : Guid
+      Description : string
+      IsCompleted : bool }
+
+module Url =
+    let todos = "/api/todosfasdfa"
