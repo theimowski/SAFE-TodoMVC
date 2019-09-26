@@ -9,29 +9,50 @@ open Shared
 
 let sampleTodos =
     [ { Id = Guid.NewGuid()
-        Description = "get the application up & running"
-        IsCompleted = true }
+        Title = "get the application up & running"
+        Completed = true }
       { Id = Guid.NewGuid()
-        Description = "add new Todo"
-        IsCompleted = false } ]
-    |> ResizeArray<_>
+        Title = "add new Todo"
+        Completed = false } ]
 
-let load () =
-    task {
-        return sampleTodos |> Seq.toList
-    }
+type Msg =
+    | Get of AsyncReplyChannel<Todo list>
+    | Apply of Event
+
+type Database () =
+
+    let mb = MailboxProcessor.Start(fun mb ->
+        let rec loop todos =
+            async {
+                let! msg = mb.Receive()
+                match msg with
+                | Get channel ->
+                    channel.Reply todos
+                    return! loop todos
+                | Apply event ->
+                    let todos' = Todos.apply event todos
+                    return! loop todos'
+            }
+        loop sampleTodos)
+
+    member __.Get() = mb.PostAndReply Get
+    member __.Apply(event) = mb.Post (Apply event)
+
+let database = Database()
 
 let webApp = router {
     get Url.todos (fun next ctx ->
         task {
-            let! todos = load()
+            let todos = database.Get()
             return! json todos next ctx
         })
     post Url.todos (fun next ctx ->
         task {
-            let! todo = ctx.BindModelAsync()
-            sampleTodos.Add todo
-            return! json todo next ctx
+            let todos = database.Get()
+            let! addDTO = ctx.BindModelAsync<AddDTO>()
+            let event = Todos.handle (Add addDTO) todos
+            database.Apply event
+            return! json event next ctx
         })
 }
 

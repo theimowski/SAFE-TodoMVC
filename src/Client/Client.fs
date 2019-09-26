@@ -2,6 +2,7 @@ module Client
 
 open System
 
+open Browser
 open Browser.Types
 open Elmish
 open Elmish.React
@@ -24,13 +25,12 @@ type Msg =
     | TodosFetched of Todo list
     | UpdateInput of string
     | AddTodo
-    | TodoAdded of Todo
-    | Toggle of Guid
+    | EventApplied of Event
 
 // Fetch
 
 let fetchTodos () = Fetch.fetchAs<Todo list>(Url.todos)
-let addTodo todo = Fetch.post<Todo, Todo>(Url.todos, todo)
+let addTodo (addDTO) = Fetch.post<AddDTO,Event>(Url.todos, addDTO)
 
 // Initial model and command
 
@@ -50,21 +50,16 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     | UpdateInput value ->
         { model with Input = value }, Cmd.none
     | AddTodo ->
-        let newTodo =
+        let addDTO =
             { Id = Guid.NewGuid()
-              Description = model.Input
-              IsCompleted = false }
-        let cmd = Cmd.OfPromise.perform addTodo newTodo TodoAdded
-        { model with
-            Input = ""
-            Todos = model.Todos @ [ newTodo ]}, cmd
-    | TodoAdded todo ->
+              Title = model.Input }
+        let event = Todos.handle (Add addDTO) model.Todos
+        let todos = Todos.apply event model.Todos
+        let cmd = Cmd.OfPromise.perform addTodo addDTO EventApplied
+        { model with Input = ""; Todos = todos }, cmd
+    | EventApplied event ->
+        console.log (sprintf "Event: %A" event)
         model, Cmd.none
-    | Toggle id ->
-        let toggle (todo: Todo) =
-            if todo.Id <> id then todo
-            else { todo with IsCompleted = not todo.IsCompleted }
-        { model with Todos = List.map toggle model.Todos }, Cmd.none
 
 // View
 
@@ -81,17 +76,16 @@ let viewInput (model:string) dispatch =
 
 let viewTodo (todo) dispatch =
   li
-    [ classList [ ("completed", todo.IsCompleted) ] ]
+    [ classList [ ("completed", todo.Completed) ] ]
     [ div
         [ ClassName "view" ]
         [ input
             [ Type "checkbox"
               ClassName "toggle"
-              Checked todo.IsCompleted
-              OnChange (fun e -> Toggle todo.Id |> dispatch) ]
+              Checked todo.Completed ]
           label
             [ ]
-            [ str todo.Description ] ] ]
+            [ str todo.Title ] ] ]
 
 let viewTodos model dispatch =
     let todos = model.Todos
