@@ -23,20 +23,25 @@ type Model =
 
 type Msg =
     | TodosFetched of Todo list
-    | UpdateInput of string
+    | ExecuteCommand of Command
     | EventApplied of Event
+    | UpdateInput of string
     | AddTodo
     | SetCompleted of Guid * bool
     | Destroy of Guid
 
-
 // Fetch
 
 let fetchTodos () = Fetch.fetchAs<Todo list>(Url.todos)
-let addTodo (addDTO) = Fetch.post<AddDTO,Event>(Url.todos, addDTO)
-let patchTodo (id, patchDTO) =
-    Fetch.patch<PatchDTO,Event>(Url.todo (string id), patchDTO)
-let delete id : Fable.Core.JS.Promise<Event> = Fetch.delete(Url.todo (string id), "")
+
+let request (command: Command) =
+    match command with
+    | Add addDTO ->
+        Fetch.post<AddDTO,Event>(Url.todos, addDTO)
+    | Patch (id, patchDTO) ->
+        Fetch.patch<PatchDTO,Event>(Url.todo (string id), patchDTO)
+    | Delete id ->
+        Fetch.delete(Url.todo (string id), "")
 
 // Initial model and command
 
@@ -49,35 +54,37 @@ let init () : Model * Cmd<Msg> =
 
 // Update
 
+let execute = ExecuteCommand >> Cmd.ofMsg
+
 let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     match msg with
     | TodosFetched todos ->
         { model with Todos = todos }, Cmd.none
     | UpdateInput value ->
         { model with Input = value }, Cmd.none
+    | ExecuteCommand command ->
+        let event = Todos.handle command model.Todos
+        let todos = Todos.apply event model.Todos
+        let cmd =
+            Cmd.OfPromise.perform (fun _ -> request command) () EventApplied
+        { model with Todos = todos }, cmd
     | EventApplied event ->
         console.log (sprintf "Event: %A" event)
         model, Cmd.none
     | AddTodo ->
-        let addDTO =
+        let addDTO : AddDTO =
             { Id = Guid.NewGuid()
               Title = model.Input }
-        let event = Todos.handle (Add addDTO) model.Todos
-        let todos = Todos.apply event model.Todos
-        let cmd = Cmd.OfPromise.perform addTodo addDTO EventApplied
-        { model with Input = ""; Todos = todos }, cmd
+        let cmd = Add addDTO |> execute
+        { model with Input = "" }, cmd
     | SetCompleted (id, completed) ->
         let patchDTO : PatchDTO =
             { Completed = completed }
-        let event = Todos.handle (Patch (id, patchDTO)) model.Todos
-        let todos = Todos.apply event model.Todos
-        let cmd = Cmd.OfPromise.perform patchTodo (id, patchDTO) EventApplied
-        { model with Todos = todos }, cmd
+        let cmd = Patch (id, patchDTO) |> execute
+        model, cmd
     | Destroy id ->
-        let event = Todos.handle (Delete id) model.Todos
-        let todos = Todos.apply event model.Todos
-        let cmd = Cmd.OfPromise.perform delete id EventApplied
-        { model with Todos = todos }, cmd
+        let cmd = Delete id |> execute
+        model, cmd
 
 // View
 

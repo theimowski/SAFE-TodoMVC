@@ -9,25 +9,7 @@ GET http://localhost:8080/api/todos
 POST http://localhost:8080/api/todos
 content-type: application/json
 
-[
-  {
+{
     "Id": "1e4b6bc5-8eb7-46eb-a681-518c99dbcbd4",
-    "Description": "implement server side using Saturn",
-    "IsCompleted": true
-  },
-  {
-    "Id": "7081af12-6f2e-4d94-8800-58df77e869c9",
-    "Description": "store todos in Azure blobs",
-    "IsCompleted": false
-  },
-  {
-    "Id": "d605b05a-5412-4756-9e86-294c4def4ee6",
-    "Description": "demonstrate Fable usage",
-    "IsCompleted": false
-  },
-  {
-    "Id": "9f7d29f2-6677-414f-8469-1eea60700528",
-    "Description": "explain Elmish and MVU",
-    "IsCompleted": false
-  }
-]
+    "Title": "a todo added from REST client",
+}
