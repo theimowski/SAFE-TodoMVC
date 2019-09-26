@@ -73,6 +73,12 @@ let webApp = router {
             store.Apply event
             return! json event next ctx
         })
+    delete Url.todosCompleted (fun next ctx ->
+        task {
+            let event = execute DeleteCompleted
+            store.Apply event
+            return! json event next ctx
+        })
 }
 
 let app = application {

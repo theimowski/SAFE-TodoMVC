@@ -29,6 +29,7 @@ type Msg =
     | AddTodo
     | SetCompleted of Guid * bool
     | Destroy of Guid
+    | ClearCompleted
 
 // Fetch
 
@@ -42,6 +43,8 @@ let request (command: Command) =
         Fetch.patch<PatchDTO,Event>(Url.todo (string id), patchDTO)
     | Delete id ->
         Fetch.delete(Url.todo (string id), "")
+    | DeleteCompleted ->
+        Fetch.delete(Url.todosCompleted, "")
 
 // Initial model and command
 
@@ -84,6 +87,9 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         model, cmd
     | Destroy id ->
         let cmd = Delete id |> execute
+        model, cmd
+    | ClearCompleted ->
+        let cmd = DeleteCompleted |> execute
         model, cmd
 
 // View
@@ -130,13 +136,32 @@ let viewTodos model dispatch =
           (todos
            |> List.map (fun todo -> viewTodo todo dispatch)) ]
 
+let viewControlsClear todosCompleted dispatch =
+  button
+    [ ClassName "clear-completed"
+      Hidden (todosCompleted = 0)
+      OnClick (fun _ -> ClearCompleted |> dispatch) ]
+    [ str ("Clear completed") ]
+
+let viewControls model dispatch =
+  let todosCompleted =
+      model.Todos
+      |> List.filter (fun t -> t.Completed)
+      |> List.length
+
+  footer
+      [ ClassName "footer"
+        Hidden (List.isEmpty model.Todos) ]
+      [ viewControlsClear todosCompleted dispatch ]
+
 let view model dispatch =
   div
     [ ClassName "todomvc-wrapper"]
     [ section
         [ ClassName "todoapp" ]
         [ viewInput model.Input dispatch
-          viewTodos model dispatch ] ]
+          viewTodos model dispatch
+          viewControls model dispatch ] ]
 
 // Main
 

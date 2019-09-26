@@ -13,6 +13,7 @@ type Command =
     | Add of AddDTO
     | Patch of Guid * PatchDTO
     | Delete of Guid
+    | DeleteCompleted
 
 type Todo =
     { Id : Guid
@@ -23,6 +24,7 @@ type Event =
     | Added of Todo
     | Patched of Todo
     | Deleted of Todo
+    | CompletedDeleted
 
 module Todos =
 
@@ -46,6 +48,8 @@ module Todos =
             todos
             |> List.find (fun t -> t.Id = id)
             |> Deleted
+        | DeleteCompleted ->
+            CompletedDeleted
 
     let apply (event: Event) (todos: Todo list) =
         match event with
@@ -55,7 +59,10 @@ module Todos =
             List.map (fun t -> if t.Id = todo.Id then todo else t) todos
         | Deleted todo ->
             List.filter (fun t -> t.Id <> todo.Id) todos
+        | CompletedDeleted ->
+            List.filter (fun t -> not t.Completed) todos
 
 module Url =
     let todos = "/api/todos"
     let todo = sprintf "/api/todo/%s"
+    let todosCompleted = "/api/todos/completed"
