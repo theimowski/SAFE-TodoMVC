@@ -63,6 +63,14 @@ let webApp = router {
             database.Apply event
             return! json event next ctx
         })
+    deletef "/api/todo/%s" (fun id next ctx ->
+        task {
+            let guid = Guid.Parse id
+            let todos = database.Get()
+            let event = Todos.handle (Delete guid) todos
+            database.Apply event
+            return! json event next ctx
+        })
 }
 
 let app = application {

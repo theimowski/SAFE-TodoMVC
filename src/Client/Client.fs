@@ -27,6 +27,8 @@ type Msg =
     | EventApplied of Event
     | AddTodo
     | SetCompleted of Guid * bool
+    | Destroy of Guid
+
 
 // Fetch
 
@@ -34,6 +36,7 @@ let fetchTodos () = Fetch.fetchAs<Todo list>(Url.todos)
 let addTodo (addDTO) = Fetch.post<AddDTO,Event>(Url.todos, addDTO)
 let patchTodo (id, patchDTO) =
     Fetch.patch<PatchDTO,Event>(Url.todo (string id), patchDTO)
+let delete id : Fable.Core.JS.Promise<Event> = Fetch.delete(Url.todo (string id), "")
 
 // Initial model and command
 
@@ -70,7 +73,11 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         let todos = Todos.apply event model.Todos
         let cmd = Cmd.OfPromise.perform patchTodo (id, patchDTO) EventApplied
         { model with Todos = todos }, cmd
-
+    | Destroy id ->
+        let event = Todos.handle (Delete id) model.Todos
+        let todos = Todos.apply event model.Todos
+        let cmd = Cmd.OfPromise.perform delete id EventApplied
+        { model with Todos = todos }, cmd
 
 // View
 
@@ -97,7 +104,11 @@ let viewTodo (todo) dispatch =
               OnChange (fun _ -> SetCompleted(todo.Id, not todo.Completed) |> dispatch) ]
           label
             [ ]
-            [ str todo.Title ] ] ]
+            [ str todo.Title ]
+          button
+            [ ClassName "destroy"
+              OnClick (fun _ -> Destroy todo.Id |> dispatch ) ]
+            [ ] ] ]
 
 let viewTodos model dispatch =
     let todos = model.Todos
