@@ -22,12 +22,12 @@ let load () =
     }
 
 let webApp = router {
-    get "/api/todos" (fun next ctx ->
+    get Url.todos (fun next ctx ->
         task {
             let! todos = load()
             return! json todos next ctx
         })
-    post "/api/todos" (fun next ctx ->
+    post Url.todos (fun next ctx ->
         task {
             let! todo = ctx.BindModelAsync()
             sampleTodos.Add todo

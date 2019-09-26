@@ -30,8 +30,8 @@ type Msg =
 
 // Fetch
 
-let fetchTodos () = Fetch.fetchAs<Todo list>("/api/todos")
-let addTodo todo = Fetch.post<Todo, Todo>("/api/todos", todo)
+let fetchTodos () = Fetch.fetchAs<Todo list>(Url.todos)
+let addTodo todo = Fetch.post<Todo, Todo>(Url.todos, todo)
 
 // Initial model and command
 
