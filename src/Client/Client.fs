@@ -25,6 +25,7 @@ type Msg =
     | UpdateInput of string
     | AddTodo
     | TodoAdded of Todo
+    | Toggle of Guid
 
 // Fetch
 
@@ -59,6 +60,11 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
             Todos = model.Todos @ [ newTodo ]}, cmd
     | TodoAdded todo ->
         model, Cmd.none
+    | Toggle id ->
+        let toggle (todo: Todo) =
+            if todo.Id <> id then todo
+            else { todo with IsCompleted = not todo.IsCompleted }
+        { model with Todos = List.map toggle model.Todos }, Cmd.none
 
 // View
 
@@ -78,7 +84,12 @@ let viewTodo (todo) dispatch =
     [ classList [ ("completed", todo.IsCompleted) ] ]
     [ div
         [ ClassName "view" ]
-        [ label
+        [ input
+            [ Type "checkbox"
+              ClassName "toggle"
+              Checked todo.IsCompleted
+              OnChange (fun e -> Toggle todo.Id |> dispatch) ]
+          label
             [ ]
             [ str todo.Description ] ] ]
 
