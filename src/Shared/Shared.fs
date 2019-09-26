@@ -14,6 +14,7 @@ type Command =
     | Patch of Guid * PatchDTO
     | Delete of Guid
     | DeleteCompleted
+    | PatchAll of PatchDTO
 
 type Todo =
     { Id : Guid
@@ -25,6 +26,7 @@ type Event =
     | Patched of Todo
     | Deleted of Todo
     | CompletedDeleted
+    | AllMarkedAs of bool
 
 module Todos =
 
@@ -50,6 +52,8 @@ module Todos =
             |> Deleted
         | DeleteCompleted ->
             CompletedDeleted
+        | PatchAll completed ->
+            AllMarkedAs completed.Completed
 
     let apply (event: Event) (todos: Todo list) =
         match event with
@@ -61,6 +65,8 @@ module Todos =
             List.filter (fun t -> t.Id <> todo.Id) todos
         | CompletedDeleted ->
             List.filter (fun t -> not t.Completed) todos
+        | AllMarkedAs completed ->
+            List.map (fun t -> { t with Completed = completed }) todos
 
 module Url =
     let todos = "/api/todos"

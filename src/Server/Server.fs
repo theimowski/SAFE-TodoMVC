@@ -58,6 +58,13 @@ let webApp = router {
             store.Apply event
             return! json event next ctx
         })
+    patch Url.todos (fun next ctx ->
+        task {
+            let! patchDTO = ctx.BindModelAsync<PatchDTO>()
+            let event = execute (PatchAll patchDTO)
+            store.Apply event
+            return! json event next ctx
+        })
     patchf "/api/todo/%s" (fun id next ctx ->
         task {
             let guid = Guid.Parse id
