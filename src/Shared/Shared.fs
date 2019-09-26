@@ -49,4 +49,5 @@ module Todos =
             List.map (fun t -> if t.Id = todo.Id then todo else t) todos
 
 module Url =
-    let todos = "/api/init"
+    let todos = "/api/todos"
+    let todo = sprintf "/api/todo/%s"

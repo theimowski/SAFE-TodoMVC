@@ -24,13 +24,16 @@ type Model =
 type Msg =
     | TodosFetched of Todo list
     | UpdateInput of string
-    | AddTodo
     | EventApplied of Event
+    | AddTodo
+    | SetCompleted of Guid * bool
 
 // Fetch
 
 let fetchTodos () = Fetch.fetchAs<Todo list>(Url.todos)
 let addTodo (addDTO) = Fetch.post<AddDTO,Event>(Url.todos, addDTO)
+let patchTodo (id, patchDTO) =
+    Fetch.patch<PatchDTO,Event>(Url.todo (string id), patchDTO)
 
 // Initial model and command
 
@@ -49,6 +52,9 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         { model with Todos = todos }, Cmd.none
     | UpdateInput value ->
         { model with Input = value }, Cmd.none
+    | EventApplied event ->
+        console.log (sprintf "Event: %A" event)
+        model, Cmd.none
     | AddTodo ->
         let addDTO =
             { Id = Guid.NewGuid()
@@ -57,9 +63,14 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         let todos = Todos.apply event model.Todos
         let cmd = Cmd.OfPromise.perform addTodo addDTO EventApplied
         { model with Input = ""; Todos = todos }, cmd
-    | EventApplied event ->
-        console.log (sprintf "Event: %A" event)
-        model, Cmd.none
+    | SetCompleted (id, completed) ->
+        let patchDTO : PatchDTO =
+            { Completed = completed }
+        let event = Todos.handle (Patch (id, patchDTO)) model.Todos
+        let todos = Todos.apply event model.Todos
+        let cmd = Cmd.OfPromise.perform patchTodo (id, patchDTO) EventApplied
+        { model with Todos = todos }, cmd
+
 
 // View
 
@@ -82,7 +93,8 @@ let viewTodo (todo) dispatch =
         [ input
             [ Type "checkbox"
               ClassName "toggle"
-              Checked todo.Completed ]
+              Checked todo.Completed
+              OnChange (fun _ -> SetCompleted(todo.Id, not todo.Completed) |> dispatch) ]
           label
             [ ]
             [ str todo.Title ] ] ]
