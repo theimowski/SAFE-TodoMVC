@@ -19,7 +19,7 @@ type Msg =
     | Get of AsyncReplyChannel<Todo list>
     | Apply of Event
 
-type Database () =
+type Store () =
 
     let mb = MailboxProcessor.Start(fun mb ->
         let rec loop todos =
@@ -35,40 +35,42 @@ type Database () =
             }
         loop sampleTodos)
 
-    member __.Get() = mb.PostAndReply Get
+    member __.GetTodos() = mb.PostAndReply Get
     member __.Apply(event) = mb.Post (Apply event)
 
-let database = Database()
+let store = Store()
+
+let execute (command: Command) =
+    let todos = store.GetTodos()
+    let event = Todos.handle command todos
+    event
 
 let webApp = router {
     get Url.todos (fun next ctx ->
         task {
-            let todos = database.Get()
+            let todos = store.GetTodos()
             return! json todos next ctx
         })
     post Url.todos (fun next ctx ->
         task {
-            let todos = database.Get()
             let! addDTO = ctx.BindModelAsync<AddDTO>()
-            let event = Todos.handle (Add addDTO) todos
-            database.Apply event
+            let event = execute (Add addDTO)
+            store.Apply event
             return! json event next ctx
         })
     patchf "/api/todo/%s" (fun id next ctx ->
         task {
             let guid = Guid.Parse id
-            let todos = database.Get()
             let! patchDTO = ctx.BindModelAsync<PatchDTO>()
-            let event = Todos.handle (Patch (guid, patchDTO)) todos
-            database.Apply event
+            let event = execute (Patch (guid, patchDTO))
+            store.Apply event
             return! json event next ctx
         })
     deletef "/api/todo/%s" (fun id next ctx ->
         task {
             let guid = Guid.Parse id
-            let todos = database.Get()
-            let event = Todos.handle (Delete guid) todos
-            database.Apply event
+            let event = execute (Delete guid)
+            store.Apply event
             return! json event next ctx
         })
 }
