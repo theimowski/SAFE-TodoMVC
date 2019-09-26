@@ -4,8 +4,6 @@ open System
 
 open Browser.Types
 open Elmish
-open Elmish.Debug
-open Elmish.HMR
 open Elmish.React
 open Fable.Core.JsInterop
 open Fable.React
@@ -106,6 +104,9 @@ let view model dispatch =
           viewTodos model dispatch ] ]
 
 // Main
+
+open Elmish.Debug
+open Elmish.HMR
 
 Program.mkProgram init update view
 |> Program.withConsoleTrace
