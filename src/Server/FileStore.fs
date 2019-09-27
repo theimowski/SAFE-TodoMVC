@@ -8,7 +8,7 @@ open Shared
 
 type FileStoreMsg =
     | Get of AsyncReplyChannel<Todo list>
-    | Apply of Event
+    | Apply of Event * AsyncReplyChannel<Todo list>
 
 type FileStore () =
     let fileName = "filestore.json"
@@ -31,13 +31,14 @@ type FileStore () =
                     let todos = getTodos()
                     channel.Reply todos
                     return! loop ()
-                | Apply event ->
+                | Apply (event, channel) ->
                     let todos = getTodos()
                     let todos' = Todos.apply event todos
                     saveTodos todos'
+                    channel.Reply todos'
                     return! loop ()
             }
         loop ())
 
     member __.GetTodos() = mb.PostAndReply Get
-    member __.Apply(event) = mb.Post (Apply event)
+    member __.Apply(event) = mb.PostAndReply (fun ch -> Apply(event, ch))

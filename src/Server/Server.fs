@@ -12,7 +12,7 @@ let store = FileStore.FileStore()
 let execute (command: Command) =
     let todos = store.GetTodos()
     let event = Todos.handle command todos
-    event
+    store.Apply event
 
 let webApp = router {
     get Url.todos (fun next ctx ->
@@ -23,37 +23,37 @@ let webApp = router {
     post Url.todos (fun next ctx ->
         task {
             let! addDTO = ctx.BindModelAsync<AddDTO>()
-            let event = execute (Add addDTO)
-            store.Apply event
-            return! json event next ctx
+            let command = Add addDTO
+            let todos = execute command
+            return! json todos next ctx
         })
     patch Url.todos (fun next ctx ->
         task {
             let! patchDTO = ctx.BindModelAsync<PatchAllDTO>()
-            let event = execute (PatchAll patchDTO)
-            store.Apply event
-            return! json event next ctx
+            let command = PatchAll patchDTO
+            let todos = execute command
+            return! json todos next ctx
         })
     patchf "/api/todo/%s" (fun id next ctx ->
         task {
             let guid = Guid.Parse id
             let! patchDTO = ctx.BindModelAsync<PatchSingleDTO>()
-            let event = execute (Patch (guid, patchDTO))
-            store.Apply event
-            return! json event next ctx
+            let command = Patch (guid, patchDTO)
+            let todos = execute command
+            return! json todos next ctx
         })
     deletef "/api/todo/%s" (fun id next ctx ->
         task {
             let guid = Guid.Parse id
-            let event = execute (Delete guid)
-            store.Apply event
-            return! json event next ctx
+            let command = Delete guid
+            let todos = execute command
+            return! json todos next ctx
         })
     delete Url.todosCompleted (fun next ctx ->
         task {
-            let event = execute DeleteCompleted
-            store.Apply event
-            return! json event next ctx
+            let command = DeleteCompleted
+            let todos = execute command
+            return! json todos next ctx
         })
 }
 

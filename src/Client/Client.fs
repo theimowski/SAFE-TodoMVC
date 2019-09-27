@@ -25,7 +25,7 @@ type Model =
 type Msg =
     | TodosFetched of Todo list
     | ExecuteCommand of Command
-    | EventApplied of Event
+    | EventApplied of Todo list
     | UpdateInput of string
     | AddTodo
     | SetCompleted of Guid * bool
@@ -44,15 +44,15 @@ let fetchTodos () = Fetch.fetchAs<Todo list>(Url.todos)
 let request (command: Command) =
     match command with
     | Add addDTO ->
-        Fetch.post<AddDTO,Event>(Url.todos, addDTO)
+        Fetch.post<AddDTO,Todo list>(Url.todos, addDTO)
     | Patch (id, patchDTO) ->
-        Fetch.patch<PatchSingleDTO,Event>(Url.todo (string id), patchDTO)
+        Fetch.patch<PatchSingleDTO,Todo list>(Url.todo (string id), patchDTO)
     | Delete id ->
         Fetch.delete(Url.todo (string id), "")
     | DeleteCompleted ->
         Fetch.delete(Url.todosCompleted, "")
     | PatchAll patchDTO ->
-        Fetch.patch<PatchAllDTO,Event>(Url.todos, patchDTO)
+        Fetch.patch<PatchAllDTO,Todo list>(Url.todos, patchDTO)
 
 // Initial model and command
 
@@ -80,8 +80,8 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         let cmd =
             Cmd.OfPromise.perform (fun _ -> request command) () EventApplied
         { model with Todos = todos }, cmd
-    | EventApplied event ->
-        console.log (sprintf "Event: %A" event)
+    | EventApplied todos ->
+        console.log (sprintf "Todos in sync: %b" (todos = model.Todos))
         model, Cmd.none
     | AddTodo ->
         let addDTO : AddDTO =
