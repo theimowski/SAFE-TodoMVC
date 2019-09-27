@@ -46,13 +46,13 @@ let request (command: Command) =
     | Add addDTO ->
         Fetch.post<AddDTO,Event>(Url.todos, addDTO)
     | Patch (id, patchDTO) ->
-        Fetch.patch<PatchDTO,Event>(Url.todo (string id), patchDTO)
+        Fetch.patch<PatchSingleDTO,Event>(Url.todo (string id), patchDTO)
     | Delete id ->
         Fetch.delete(Url.todo (string id), "")
     | DeleteCompleted ->
         Fetch.delete(Url.todosCompleted, "")
     | PatchAll patchDTO ->
-        Fetch.patch<PatchDTO,Event>(Url.todos, patchDTO)
+        Fetch.patch<PatchAllDTO,Event>(Url.todos, patchDTO)
 
 // Initial model and command
 
@@ -90,8 +90,9 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         let cmd = Add addDTO |> execute
         { model with Input = "" }, cmd
     | SetCompleted (id, completed) ->
-        let patchDTO : PatchDTO =
-            { Completed = completed }
+        let patchDTO : PatchSingleDTO =
+            { Completed = Some completed
+              Title = None }
         let cmd = Patch (id, patchDTO) |> execute
         model, cmd
     | Destroy id ->
@@ -101,7 +102,7 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         let cmd = DeleteCompleted |> execute
         model, cmd
     | SetAll completed ->
-        let patchDTO : PatchDTO =
+        let patchDTO : PatchAllDTO =
             { Completed = completed }
         let cmd = PatchAll patchDTO |> execute
         model, cmd
@@ -112,12 +113,15 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
             |> Option.map (fun t -> t.Id, t.Title)
         { model with Editing = editing }, Cmd.none
     | SaveEdit ->
-        let apply (todo: Todo) =
+        let cmd =
             match model.Editing with
-            | Some (id, edited) when id = todo.Id -> { todo with Title = edited }
-            | _ -> todo
-        let todos = List.map apply model.Todos
-        { model with Editing = None; Todos = todos }, Cmd.none
+            | Some (id, title) ->
+                let patchDTO : PatchSingleDTO =
+                    { Completed = None
+                      Title = Some title }
+                Patch (id, patchDTO) |> execute
+            | None -> Cmd.none
+        { model with Editing = None }, cmd
     | AbortEdit ->
         { model with Editing = None }, Cmd.none
     | UpdateEditing value ->

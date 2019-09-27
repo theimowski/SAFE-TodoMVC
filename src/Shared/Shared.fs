@@ -6,15 +6,19 @@ type AddDTO =
     { Id : Guid
       Title : string }
 
-type PatchDTO =
+type PatchSingleDTO =
+    { Completed : bool option
+      Title : string option }
+
+type PatchAllDTO =
     { Completed : bool }
 
 type Command =
     | Add of AddDTO
-    | Patch of Guid * PatchDTO
+    | Patch of Guid * PatchSingleDTO
     | Delete of Guid
     | DeleteCompleted
-    | PatchAll of PatchDTO
+    | PatchAll of PatchAllDTO
 
 type Todo =
     { Id : Guid
@@ -30,8 +34,10 @@ type Event =
 
 module Todos =
 
-    let patch (patchDTO: PatchDTO) (todo: Todo) : Todo =
-        { todo with Completed = patchDTO.Completed }
+    let patch (patchDTO: PatchSingleDTO) (todo: Todo) : Todo =
+        { todo with
+            Completed = patchDTO.Completed |> Option.defaultValue todo.Completed
+            Title = patchDTO.Title |> Option.defaultValue todo.Title }
 
     let handle (command: Command) (todos: Todo list) : Event =
         match command with
@@ -52,8 +58,8 @@ module Todos =
             |> Deleted
         | DeleteCompleted ->
             CompletedDeleted
-        | PatchAll completed ->
-            AllMarkedAs completed.Completed
+        | PatchAll patchDTO ->
+            AllMarkedAs patchDTO.Completed
 
     let apply (event: Event) (todos: Todo list) =
         match event with
