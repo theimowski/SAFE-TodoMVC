@@ -50,7 +50,7 @@ let request (command: Command) =
     | Delete id ->
         Fetch.delete(Url.todo (string id), "")
     | DeleteCompleted ->
-        Fetch.delete(Url.todosCompleted, "")
+        Fetch.delete(Url.todos, "")
     | PatchAll patchDTO ->
         Fetch.patch<PatchAllDTO,Todo list>(Url.todos, patchDTO)
 

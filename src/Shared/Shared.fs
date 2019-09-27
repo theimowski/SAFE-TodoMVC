@@ -77,4 +77,3 @@ module Todos =
 module Url =
     let todos = "/api/todos"
     let todo = sprintf "/api/todo/%s"
-    let todosCompleted = "/api/todos/completed"

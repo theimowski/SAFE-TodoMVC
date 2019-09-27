@@ -14,27 +14,36 @@ let execute (command: Command) =
     let event = Todos.handle command todos
     store.Apply event
 
-let webApp = router {
-    get Url.todos (fun next ctx ->
+let todosRouter = router {
+    get "" (fun next ctx ->
         task {
             let todos = store.GetTodos()
             return! json todos next ctx
         })
-    post Url.todos (fun next ctx ->
+    post "" (fun next ctx ->
         task {
             let! addDTO = ctx.BindModelAsync<AddDTO>()
             let command = Add addDTO
             let todos = execute command
             return! json todos next ctx
         })
-    patch Url.todos (fun next ctx ->
+    patch "" (fun next ctx ->
         task {
             let! patchDTO = ctx.BindModelAsync<PatchAllDTO>()
             let command = PatchAll patchDTO
             let todos = execute command
             return! json todos next ctx
         })
-    patchf "/api/todo/%s" (fun id next ctx ->
+    delete "" (fun next ctx ->
+        task {
+            let command = DeleteCompleted
+            let todos = execute command
+            return! json todos next ctx
+        })
+}
+
+let todoRouter (id: string) = router {
+    patch "" (fun next ctx ->
         task {
             let guid = Guid.Parse id
             let! patchDTO = ctx.BindModelAsync<PatchSingleDTO>()
@@ -42,19 +51,18 @@ let webApp = router {
             let todos = execute command
             return! json todos next ctx
         })
-    deletef "/api/todo/%s" (fun id next ctx ->
+    delete "" (fun next ctx ->
         task {
             let guid = Guid.Parse id
             let command = Delete guid
             let todos = execute command
             return! json todos next ctx
         })
-    delete Url.todosCompleted (fun next ctx ->
-        task {
-            let command = DeleteCompleted
-            let todos = execute command
-            return! json todos next ctx
-        })
+}
+
+let webApp = router {
+    forward Url.todos todosRouter
+    forwardf "/api/todo/%s" todoRouter
 }
 
 let app = application {
