@@ -17,7 +17,8 @@ open Shared
 
 type Model =
     { Todos : Todo list
-      Input : string }
+      Input : string
+      Editing : (Guid * string) option }
 
 // Messages
 
@@ -31,6 +32,10 @@ type Msg =
     | Destroy of Guid
     | ClearCompleted
     | SetAll of bool
+    | StartEditing of Guid
+    | UpdateEditing of string
+    | SaveEdit
+    | AbortEdit
 
 // Fetch
 
@@ -55,7 +60,8 @@ let init () : Model * Cmd<Msg> =
     let cmd = Cmd.OfPromise.perform fetchTodos () TodosFetched
     let model =
         { Todos = []
-          Input = "" }
+          Input = ""
+          Editing = None }
     model, cmd
 
 // Update
@@ -99,6 +105,26 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
             { Completed = completed }
         let cmd = PatchAll patchDTO |> execute
         model, cmd
+    | StartEditing id ->
+        let editing =
+            model.Todos
+            |> List.tryFind (fun t -> t.Id = id)
+            |> Option.map (fun t -> t.Id, t.Title)
+        { model with Editing = editing }, Cmd.none
+    | SaveEdit ->
+        let apply (todo: Todo) =
+            match model.Editing with
+            | Some (id, edited) when id = todo.Id -> { todo with Title = edited }
+            | _ -> todo
+        let todos = List.map apply model.Todos
+        { model with Editing = None; Todos = todos }, Cmd.none
+    | AbortEdit ->
+        { model with Editing = None }, Cmd.none
+    | UpdateEditing value ->
+        let editing =
+            model.Editing
+            |> Option.map (fun (id,_) -> id, value)
+        { model with Editing = editing }, Cmd.none
 
 // View
 
@@ -113,9 +139,11 @@ let viewInput (model:string) dispatch =
             OnKeyDown (fun e -> if e.keyCode = 13. then dispatch AddTodo)
             AutoFocus true ] ]
 
-let viewTodo (todo) dispatch =
+let viewTodo (todo, editing: string option) dispatch =
   li
-    [ classList [ ("completed", todo.Completed) ] ]
+    [ classList
+        [ "completed", todo.Completed
+          "editing", Option.isSome editing ] ]
     [ div
         [ ClassName "view" ]
         [ input
@@ -124,12 +152,21 @@ let viewTodo (todo) dispatch =
               Checked todo.Completed
               OnChange (fun _ -> SetCompleted(todo.Id, not todo.Completed) |> dispatch) ]
           label
-            [ ]
+            [ OnDoubleClick (fun _ -> StartEditing todo.Id |> dispatch) ]
             [ str todo.Title ]
           button
             [ ClassName "destroy"
               OnClick (fun _ -> Destroy todo.Id |> dispatch ) ]
-            [ ] ] ]
+            [ ] ]
+      input
+        [ ClassName "edit"
+          valueOrDefault (editing |> Option.defaultValue todo.Title)
+          OnChange (fun e -> e.target?value |> UpdateEditing |> dispatch)
+          Name "title"
+          OnKeyDown
+            (fun e ->
+                if e.keyCode = 13. then dispatch SaveEdit
+                elif e.keyCode = 27. then dispatch AbortEdit) ] ]
 
 let viewTodos model dispatch =
     let todos = model.Todos
@@ -156,7 +193,11 @@ let viewTodos model dispatch =
         ul
           [ ClassName "todo-list" ]
           (todos
-           |> List.map (fun todo -> viewTodo todo dispatch)) ]
+           |> List.map (fun todo ->
+                let editing =
+                    model.Editing
+                    |> Option.bind (fun (id,editing) -> if id = todo.Id then Some editing else None)
+                viewTodo (todo, editing) dispatch)) ]
 
 let viewControlsCount todosLeft =
     let item =
