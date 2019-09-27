@@ -4,6 +4,7 @@ open System.IO
 open FSharp.Control.Tasks.V2
 open Giraffe
 open Saturn
+open Thoth.Json.Net
 
 open Shared
 
@@ -19,26 +20,35 @@ type Msg =
     | Get of AsyncReplyChannel<Todo list>
     | Apply of Event
 
-type Store () =
+type FileStore () =
+    let fileName = "filestore.json"
+    let getTodos () =
+        try
+            let rawJSON = File.ReadAllText(fileName)
+            Decode.Auto.unsafeFromString(rawJSON)
+        with _ -> []
 
     let mb = MailboxProcessor.Start(fun mb ->
-        let rec loop todos =
+        let rec loop () =
             async {
                 let! msg = mb.Receive()
                 match msg with
                 | Get channel ->
+                    let todos = getTodos()
                     channel.Reply todos
-                    return! loop todos
+                    return! loop ()
                 | Apply event ->
-                    let todos' = Todos.apply event todos
-                    return! loop todos'
+                    let todos = Todos.apply event (getTodos())
+                    let rawJSON = Encode.Auto.toString(4, todos)
+                    File.WriteAllText(fileName, rawJSON)
+                    return! loop ()
             }
-        loop sampleTodos)
+        loop ())
 
     member __.GetTodos() = mb.PostAndReply Get
     member __.Apply(event) = mb.Post (Apply event)
 
-let store = Store()
+let store = FileStore()
 
 let execute (command: Command) =
     let todos = store.GetTodos()
