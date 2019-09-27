@@ -158,32 +158,44 @@ let viewTodos model dispatch =
           (todos
            |> List.map (fun todo -> viewTodo todo dispatch)) ]
 
+let viewControlsCount todosLeft =
+    let item =
+        if todosLeft = 1 then " item" else " items"
+
+    span
+        [ ClassName "todo-count" ]
+        [ strong [] [ str (string todosLeft) ]
+          str (item + " left") ]
+
 let viewControlsClear todosCompleted dispatch =
-  button
-    [ ClassName "clear-completed"
-      Hidden (todosCompleted = 0)
-      OnClick (fun _ -> ClearCompleted |> dispatch) ]
-    [ str ("Clear completed") ]
+    button
+        [ ClassName "clear-completed"
+          Hidden (todosCompleted = 0)
+          OnClick (fun _ -> ClearCompleted |> dispatch) ]
+        [ str ("Clear completed") ]
 
 let viewControls model dispatch =
-  let todosCompleted =
-      model.Todos
-      |> List.filter (fun t -> t.Completed)
-      |> List.length
+    let todosCompleted =
+        model.Todos
+        |> List.filter (fun t -> t.Completed)
+        |> List.length
 
-  footer
-      [ ClassName "footer"
-        Hidden (List.isEmpty model.Todos) ]
-      [ viewControlsClear todosCompleted dispatch ]
+    let todosLeft = model.Todos.Length - todosCompleted
+
+    footer
+        [ ClassName "footer"
+          Hidden (List.isEmpty model.Todos) ]
+        [ viewControlsCount todosLeft
+          viewControlsClear todosCompleted dispatch ]
 
 let view model dispatch =
-  div
-    [ ClassName "todomvc-wrapper"]
-    [ section
-        [ ClassName "todoapp" ]
-        [ viewInput model.Input dispatch
-          viewTodos model dispatch
-          viewControls model dispatch ] ]
+    div
+      [ ClassName "todomvc-wrapper"]
+      [ section
+          [ ClassName "todoapp" ]
+          [ viewInput model.Input dispatch
+            viewTodos model dispatch
+            viewControls model dispatch ] ]
 
 // Main
 
