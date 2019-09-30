@@ -34,6 +34,7 @@ type Event =
 
 type Error =
     | DuplicateTodoId
+    | TitleCannotBeEmpty
     | TodoNotFound
 
 module Result =
@@ -51,6 +52,7 @@ module Todos =
         | Add addDTO ->
             let exists = todos |> List.exists (fun t -> t.Id = addDTO.Id)
             if exists then Error DuplicateTodoId
+            elif addDTO.Title = "" then Error TitleCannotBeEmpty
             else
                 let todo : Todo =
                     { Id = addDTO.Id
@@ -59,15 +61,16 @@ module Todos =
                 Added todo
                 |> Ok
         | Patch (id, patchDTO) ->
-            todos
-            |> List.tryFind (fun t -> t.Id = id)
-            |> Option.map (patch patchDTO >> Patched)
-            |> Result.ofOption TodoNotFound
+            if patchDTO.Title |> Option.exists (fun t -> t = "") then
+                Error TitleCannotBeEmpty
+            else
+                match todos |> List.tryFind (fun t -> t.Id = id) with
+                | Some todo -> patch patchDTO todo |> Patched |> Ok
+                | None -> Error TodoNotFound
         | Delete id ->
-            todos
-            |> List.tryFind (fun t -> t.Id = id)
-            |> Option.map Deleted
-            |> Result.ofOption TodoNotFound
+            match todos |> List.tryFind (fun t -> t.Id = id) with
+            | Some todo -> Deleted todo |> Ok
+            | None -> Error TodoNotFound
         | DeleteCompleted ->
             Ok CompletedDeleted
         | PatchAll patchDTO ->

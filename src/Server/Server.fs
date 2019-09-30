@@ -18,6 +18,8 @@ let execute (command: Command) next ctx =
             return! json todos' next ctx
         | Error DuplicateTodoId ->
             return! Response.conflict ctx "Todo with same Id already exists!"
+        | Error TitleCannotBeEmpty ->
+            return! Response.badRequest ctx "Title cannot be empty!"
         | Error TodoNotFound ->
             return! Response.notFound ctx "Todo not found!"
     }
