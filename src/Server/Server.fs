@@ -43,6 +43,15 @@ let todosRouter = router {
 }
 
 let todoRouter (id: string) = router {
+    get "" (fun next ctx ->
+        task {
+            let guid = Guid.Parse id
+            let todos = store.GetTodos()
+            let todo =
+                todos
+                |> List.find (fun t -> t.Id = guid)
+            return! json todo next ctx
+        })
     patch "" (fun next ctx ->
         task {
             let guid = Guid.Parse id
