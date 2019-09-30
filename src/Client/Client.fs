@@ -9,7 +9,9 @@ open Elmish.React
 open Fable.Core.JsInterop
 open Fable.React
 open Fable.React.Props
+open Fetch
 open Thoth.Fetch
+open Thoth.Json
 
 open Shared
 
@@ -42,20 +44,25 @@ type Msg =
 let todos = "/api/todos"
 let todo (id: Guid) = sprintf "/api/todo/%O" id
 
-let fetchTodos () = Fetch.fetchAs<Todo list>(todos)
+let fetch method url (body: 'a option) =
+    let properties =
+        [ yield Method method
+          match body with
+          | Some body ->
+            yield requestHeaders [ ContentType "application/json" ]
+            yield Body (body |> Encode.toString 0 |> (!^))
+          | None -> () ]
+    Fetch.fetchAs<Todo list>(url, properties)
+
+let fetchTodos () = fetch HttpMethod.GET todos None
 
 let request (command: Command) =
     match command with
-    | Add addDTO ->
-        Fetch.post<AddDTO,Todo list>(todos, addDTO)
-    | Patch (id, patchDTO) ->
-        Fetch.patch<PatchSingleDTO,Todo list>(todo id, patchDTO)
-    | Delete id ->
-        Fetch.delete(todo id, "")
-    | DeleteCompleted ->
-        Fetch.delete(todos, "")
-    | PatchAll patchDTO ->
-        Fetch.patch<PatchAllDTO,Todo list>(todos, patchDTO)
+    | Add addDTO -> fetch HttpMethod.POST todos (Some addDTO)
+    | Patch (id, patchDTO) -> fetch HttpMethod.PATCH (todo id) (Some patchDTO)
+    | Delete id -> fetch HttpMethod.DELETE (todo id) None
+    | DeleteCompleted -> fetch HttpMethod.DELETE todos None
+    | PatchAll patchDTO -> fetch HttpMethod.PATCH todos (Some patchDTO)
 
 // Initial model and command
 
