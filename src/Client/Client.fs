@@ -75,11 +75,15 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     | UpdateInput value ->
         { model with Input = value }, Cmd.none
     | ExecuteCommand command ->
-        let event = Todos.handle command model.Todos
-        let todos = Todos.apply event model.Todos
-        let cmd =
-            Cmd.OfPromise.perform (fun _ -> request command) () EventApplied
-        { model with Todos = todos }, cmd
+        match Todos.handle command model.Todos with
+        | Ok event ->
+            let todos = Todos.apply event model.Todos
+            let cmd =
+                Cmd.OfPromise.perform (fun _ -> request command) () EventApplied
+            { model with Todos = todos }, cmd
+        | Error e ->
+            console.log (sprintf "Domain error: %A" e)
+            model, Cmd.none
     | EventApplied todos ->
         console.log (sprintf "Todos in sync: %b" (todos = model.Todos))
         model, Cmd.none

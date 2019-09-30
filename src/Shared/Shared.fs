@@ -32,6 +32,13 @@ type Event =
     | CompletedDeleted
     | AllMarkedAs of bool
 
+type Error =
+    | DuplicateTodoId
+    | TodoNotFound
+
+module Result =
+    let ofOption e = function Some x -> Ok x | None -> Error e
+
 module Todos =
 
     let patch (patchDTO: PatchSingleDTO) (todo: Todo) : Todo =
@@ -39,27 +46,33 @@ module Todos =
             Completed = patchDTO.Completed |> Option.defaultValue todo.Completed
             Title = patchDTO.Title |> Option.defaultValue todo.Title }
 
-    let handle (command: Command) (todos: Todo list) : Event =
+    let handle (command: Command) (todos: Todo list) : Result<Event, Error> =
         match command with
         | Add addDTO ->
-            let todo : Todo =
-                { Id = addDTO.Id
-                  Title = addDTO.Title
-                  Completed = false }
-            Added todo
+            let exists = todos |> List.exists (fun t -> t.Id = addDTO.Id)
+            if exists then Error DuplicateTodoId
+            else
+                let todo : Todo =
+                    { Id = addDTO.Id
+                      Title = addDTO.Title
+                      Completed = false }
+                Added todo
+                |> Ok
         | Patch (id, patchDTO) ->
             todos
-            |> List.find (fun t -> t.Id = id)
-            |> patch patchDTO
-            |> Patched
+            |> List.tryFind (fun t -> t.Id = id)
+            |> Option.map (patch patchDTO >> Patched)
+            |> Result.ofOption TodoNotFound
         | Delete id ->
             todos
-            |> List.find (fun t -> t.Id = id)
-            |> Deleted
+            |> List.tryFind (fun t -> t.Id = id)
+            |> Option.map Deleted
+            |> Result.ofOption TodoNotFound
         | DeleteCompleted ->
-            CompletedDeleted
+            Ok CompletedDeleted
         | PatchAll patchDTO ->
             AllMarkedAs patchDTO.Completed
+            |> Ok
 
     let apply (event: Event) (todos: Todo list) =
         match event with

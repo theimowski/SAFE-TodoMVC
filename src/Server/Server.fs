@@ -9,10 +9,18 @@ open Shared
 
 let store = FileStore.FileStore()
 
-let execute (command: Command) =
-    let todos = store.GetTodos()
-    let event = Todos.handle command todos
-    store.Apply event
+let execute (command: Command) next ctx =
+    task {
+        let todos = store.GetTodos()
+        match Todos.handle command todos with
+        | Ok event ->
+            let todos' = store.Apply event
+            return! json todos' next ctx
+        | Error DuplicateTodoId ->
+            return! Response.conflict ctx "Todo with same Id already exists!"
+        | Error TodoNotFound ->
+            return! Response.notFound ctx "Todo not found!"
+    }
 
 let todosRouter = router {
     get "" (fun next ctx ->
@@ -24,54 +32,48 @@ let todosRouter = router {
         task {
             let! addDTO = ctx.BindModelAsync<AddDTO>()
             let command = Add addDTO
-            let todos = execute command
-            return! json todos next ctx
+            return! execute command next ctx
         })
     patch "" (fun next ctx ->
         task {
             let! patchDTO = ctx.BindModelAsync<PatchAllDTO>()
             let command = PatchAll patchDTO
-            let todos = execute command
-            return! json todos next ctx
+            return! execute command next ctx
         })
     delete "" (fun next ctx ->
         task {
             let command = DeleteCompleted
             let todos = execute command
-            return! json todos next ctx
+            return! execute command next ctx
         })
 }
 
-let todoRouter (id: string) = router {
+let todoRouter (id: Guid) = router {
     get "" (fun next ctx ->
         task {
-            let guid = Guid.Parse id
-            let todos = store.GetTodos()
-            let todo =
-                todos
-                |> List.find (fun t -> t.Id = guid)
-            return! json todo next ctx
+            let todo = store.GetTodos() |> List.tryFind (fun t -> t.Id = id)
+            match todo with
+            | Some todo ->
+                return! json todo next ctx
+            | None ->
+                return! Response.notFound ctx "Todo not found!"
         })
     patch "" (fun next ctx ->
         task {
-            let guid = Guid.Parse id
             let! patchDTO = ctx.BindModelAsync<PatchSingleDTO>()
-            let command = Patch (guid, patchDTO)
-            let todos = execute command
-            return! json todos next ctx
+            let command = Patch (id, patchDTO)
+            return! execute command next ctx
         })
     delete "" (fun next ctx ->
         task {
-            let guid = Guid.Parse id
-            let command = Delete guid
-            let todos = execute command
-            return! json todos next ctx
+            let command = Delete id
+            return! execute command next ctx
         })
 }
 
 let webApp = router {
     forward Url.todos todosRouter
-    forwardf "/api/todo/%s" todoRouter
+    forwardf "/api/todo/%O" todoRouter
 }
 
 let app = application {
