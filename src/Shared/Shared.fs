@@ -37,9 +37,6 @@ type Error =
     | TitleCannotBeEmpty
     | TodoNotFound
 
-module Result =
-    let ofOption e = function Some x -> Ok x | None -> Error e
-
 module Todos =
 
     let patch (patchDTO: PatchSingleDTO) (todo: Todo) : Todo =
