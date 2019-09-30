@@ -72,7 +72,7 @@ let todoRouter (id: Guid) = router {
 }
 
 let webApp = router {
-    forward Url.todos todosRouter
+    forward "/api/todos" todosRouter
     forwardf "/api/todo/%O" todoRouter
 }
 

@@ -86,7 +86,3 @@ module Todos =
             List.filter (fun t -> not t.Completed) todos
         | AllMarkedAs completed ->
             List.map (fun t -> { t with Completed = completed }) todos
-
-module Url =
-    let todos = "/api/todos"
-    let todo = sprintf "/api/todo/%s"
