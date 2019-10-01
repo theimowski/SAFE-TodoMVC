@@ -48,7 +48,7 @@ let fetchTodos () = fetch HttpMethod.GET todos None
 
 let request (command: Command) =
     match command with
-    | () -> fetchTodos ()
+    | () -> fetch HttpMethod.GET todos None
 
 // Initial model and command
 
