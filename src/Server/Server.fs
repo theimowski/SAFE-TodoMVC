@@ -16,10 +16,8 @@ let execute (command: Command) next ctx =
         | Ok event ->
             let todos' = store.Apply event
             return! json todos' next ctx
-        | Error DuplicateTodoId ->
-            return! Response.conflict ctx "Todo with same Id already exists!"
-        | Error TitleCannotBeEmpty ->
-            return! Response.badRequest ctx "Title cannot be empty!"
+        | Error _ ->
+            return! Response.notImplemented ctx "not implemented!"
     }
 
 let todosRouter = router {
@@ -27,12 +25,6 @@ let todosRouter = router {
         task {
             let todos = store.GetTodos()
             return! json todos next ctx
-        })
-    post "" (fun next ctx ->
-        task {
-            let! addDTO = ctx.BindModelAsync<AddDTO>()
-            let command = Add addDTO
-            return! execute command next ctx
         })
 }
 
