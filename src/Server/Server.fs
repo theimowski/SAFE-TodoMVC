@@ -20,8 +20,6 @@ let execute (command: Command) next ctx =
             return! Response.conflict ctx "Todo with same Id already exists!"
         | Error TitleCannotBeEmpty ->
             return! Response.badRequest ctx "Title cannot be empty!"
-        | Error TodoNotFound ->
-            return! Response.notFound ctx "Todo not found!"
     }
 
 let todosRouter = router {
@@ -36,18 +34,6 @@ let todosRouter = router {
             let command = Add addDTO
             return! execute command next ctx
         })
-    patch "" (fun next ctx ->
-        task {
-            let! patchDTO = ctx.BindModelAsync<PatchAllDTO>()
-            let command = PatchAll patchDTO
-            return! execute command next ctx
-        })
-    delete "" (fun next ctx ->
-        task {
-            let command = DeleteCompleted
-            let todos = execute command
-            return! execute command next ctx
-        })
 }
 
 let todoRouter (id: Guid) = router {
@@ -59,17 +45,6 @@ let todoRouter (id: Guid) = router {
                 return! json todo next ctx
             | None ->
                 return! Response.notFound ctx "Todo not found!"
-        })
-    patch "" (fun next ctx ->
-        task {
-            let! patchDTO = ctx.BindModelAsync<PatchSingleDTO>()
-            let command = Patch (id, patchDTO)
-            return! execute command next ctx
-        })
-    delete "" (fun next ctx ->
-        task {
-            let command = Delete id
-            return! execute command next ctx
         })
 }
 
