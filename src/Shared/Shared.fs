@@ -8,6 +8,7 @@ type AddDTO =
 
 type Command =
     | AddCommand of AddDTO
+    | DeleteCommand of Guid
 
 type Todo =
     { Id : Guid
@@ -16,9 +17,11 @@ type Todo =
 
 type Event =
     | TodoAdded of Todo
+    | TodoDeleted of Todo
 
 type Error =
     | TodoIdAlreadyExists
+    | TodoNotFound
 
 module Todos =
 
@@ -33,8 +36,16 @@ module Todos =
                       Title = addDTO.Title
                       Completed = false }
                 TodoAdded todo |> Ok
+        | DeleteCommand id ->
+            match todos |> List.tryFind (fun t -> t.Id = id) with
+            | Some todo ->
+                TodoDeleted todo |> Ok
+            | None ->
+                Error TodoNotFound
 
     let apply (event: Event) (todos: Todo list) =
         match event with
         | TodoAdded todo ->
             todos @ [ todo ]
+        | TodoDeleted todo ->
+            todos |> List.filter (fun t -> t.Id <> todo.Id)

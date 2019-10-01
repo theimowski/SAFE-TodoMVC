@@ -29,6 +29,7 @@ type Msg =
     | EventApplied of Todo list
     | UpdateInput of string
     | Add
+    | Destroy of Guid
 
 // Fetch
 
@@ -50,6 +51,7 @@ let fetchTodos () = fetch HttpMethod.GET todos None
 let request (command: Command) =
     match command with
     | AddCommand addDTO -> fetch HttpMethod.POST todos (Some addDTO)
+    | DeleteCommand id -> fetch HttpMethod.DELETE (todo id) None
 
 // Initial model and command
 
@@ -89,6 +91,9 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
               Title = model.Input }
         let cmd = execute (AddCommand addDTO)
         { model with Input = "" }, cmd
+    | Destroy id ->
+        let cmd = execute (DeleteCommand id)
+        model, cmd
 
 // View
 
@@ -116,7 +121,11 @@ let viewTodo (todo: Todo) dispatch =
         [ ClassName "view" ]
         [ label
             [ ]
-            [ str todo.Title ] ] ]
+            [ str todo.Title ]
+          button
+            [ ClassName "destroy"
+              OnClick (fun _ -> Destroy todo.Id |> dispatch) ]
+            [ ] ] ]
 
 let viewTodos model dispatch =
     let todos = model.Todos
