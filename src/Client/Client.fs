@@ -30,6 +30,7 @@ type Msg =
     | UpdateInput of string
     | Add
     | Destroy of Guid
+    | SetCompleted of Guid * bool
 
 // Fetch
 
@@ -52,6 +53,7 @@ let request (command: Command) =
     match command with
     | AddCommand addDTO -> fetch HttpMethod.POST todos (Some addDTO)
     | DeleteCommand id -> fetch HttpMethod.DELETE (todo id) None
+    | PatchCommand(id, patchDTO) -> fetch HttpMethod.PATCH (todo id) (Some patchDTO)
 
 // Initial model and command
 
@@ -94,6 +96,11 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     | Destroy id ->
         let cmd = execute (DeleteCommand id)
         model, cmd
+    | SetCompleted (id, completed) ->
+        let patchDTO : PatchDTO =
+            { Completed = completed }
+        let cmd = PatchCommand (id, patchDTO) |> execute
+        model, cmd
 
 // View
 
@@ -119,7 +126,12 @@ let viewTodo (todo: Todo) dispatch =
         [ "completed", todo.Completed ] ]
     [ div
         [ ClassName "view" ]
-        [ label
+        [ input
+            [ Type "checkbox"
+              ClassName "toggle"
+              Checked todo.Completed
+              OnChange (fun _ -> SetCompleted (todo.Id, not todo.Completed) |> dispatch) ]
+          label
             [ ]
             [ str todo.Title ]
           button

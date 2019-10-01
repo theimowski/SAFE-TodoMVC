@@ -12,12 +12,12 @@
     {
         "Id": "18535233-3d01-4552-af61-7c15b818be66",
         "Title": "delete a Todo",
-        "Completed": false
+        "Completed": true
     },
     {
         "Id": "ff1f724a-0911-4040-baaf-667b3f67e5df",
         "Title": "toggle completed for a Todo",
-        "Completed": false
+        "Completed": true
     },
     {
         "Id": "0f4f9b5e-1ada-4c31-84d6-91eb77921804",
