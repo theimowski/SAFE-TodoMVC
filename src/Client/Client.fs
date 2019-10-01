@@ -89,7 +89,7 @@ module Key =
     let enter = 13.
     let esc = 27.
 
-let viewInput (model:string) dispatch =
+let viewInput (model: Model) dispatch =
     header [ ClassName "header" ]
         [ h1 [ ] [ str "todos" ]
           input
@@ -145,7 +145,7 @@ let view model dispatch =
       [ ClassName "todomvc-wrapper"]
       [ section
           [ ClassName "todoapp" ]
-          [ viewInput model.Input dispatch
+          [ viewInput model dispatch
             viewTodos model dispatch
             viewControls model dispatch ] ]
 
