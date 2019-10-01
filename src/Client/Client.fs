@@ -28,6 +28,7 @@ type Msg =
     | ExecuteCommand of Command
     | EventApplied of Todo list
     | UpdateInput of string
+    | Add
 
 // Fetch
 
@@ -48,7 +49,7 @@ let fetchTodos () = fetch HttpMethod.GET todos None
 
 let request (command: Command) =
     match command with
-    | () -> fetch HttpMethod.GET todos None
+    | AddCommand addDTO -> fetch HttpMethod.POST todos (Some addDTO)
 
 // Initial model and command
 
@@ -82,6 +83,12 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     | EventApplied todos ->
         console.log (sprintf "Todos in sync: %b" (todos = model.Todos))
         model, Cmd.none
+    | Add ->
+        let addDTO : AddDTO =
+            { Id = Guid.NewGuid()
+              Title = model.Input }
+        let cmd = execute (AddCommand addDTO)
+        { model with Input = "" }, cmd
 
 // View
 
@@ -93,9 +100,15 @@ let viewInput (model: Model) dispatch =
     header [ ClassName "header" ]
         [ h1 [ ] [ str "todos" ]
           input
-              [ ] ]
+              [ ClassName "new-todo"
+                Placeholder "What needs to be done?"
+                OnChange (fun e -> e.target?value |> UpdateInput |> dispatch)
+                OnKeyDown
+                    (fun e -> if e.keyCode = Key.enter then dispatch Add)
+                valueOrDefault model.Input
+                AutoFocus true ] ]
 
-let viewTodo (todo) dispatch =
+let viewTodo (todo: Todo) dispatch =
   li
     [ classList
         [ "completed", todo.Completed ] ]
