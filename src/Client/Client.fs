@@ -85,6 +85,10 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
 
 // View
 
+module Key =
+    let enter = 13.
+    let esc = 27.
+
 let viewInput (model:string) dispatch =
     header [ ClassName "header" ]
         [ h1 [ ] [ str "todos" ]
