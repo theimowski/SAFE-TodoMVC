@@ -7,6 +7,10 @@ type AddDTO =
       Title : string }
 
 type PatchDTO =
+    { Completed : bool option
+      Title : string option }
+
+type PatchAllDTO =
     { Completed : bool }
 
 type Command =
@@ -14,7 +18,7 @@ type Command =
     | DeleteCommand of Guid
     | PatchCommand of Guid * PatchDTO
     | DeleteCompletedCommand
-    | PatchAllCommand of PatchDTO
+    | PatchAllCommand of PatchAllDTO
 
 type Todo =
     { Id : Guid
@@ -54,7 +58,11 @@ module Todos =
         | PatchCommand(id, patchDTO) ->
             match todos |> List.tryFind (fun t -> t.Id = id) with
             | Some todo ->
-                { todo with Completed = patchDTO.Completed} |> TodoPatched |> Ok
+                let todo =
+                    { todo with
+                        Completed = defaultArg patchDTO.Completed todo.Completed
+                        Title = defaultArg patchDTO.Title todo.Title }
+                todo |> TodoPatched |> Ok
             | None ->
                 Error TodoNotFound
         | DeleteCompletedCommand ->

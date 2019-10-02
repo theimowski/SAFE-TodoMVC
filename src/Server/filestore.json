@@ -32,6 +32,6 @@
     {
         "Id": "f6ad5f9c-17d5-49be-8faa-b8e6529a25e9",
         "Title": "(*) edit title of a Todo",
-        "Completed": false
+        "Completed": true
     }
 ]

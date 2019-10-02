@@ -19,7 +19,8 @@ open Shared
 
 type Model =
     { Todos : Todo list
-      Input : string }
+      Input : string
+      Editing : (Guid * string) option }
 
 // Messages
 
@@ -33,6 +34,10 @@ type Msg =
     | SetCompleted of Guid * bool
     | ClearCompleted
     | SetAllCompleted of bool
+    | StartEditing of Guid
+    | AbortEditing
+    | SetEditingValue of string
+    | ApplyEditing
 
 // Fetch
 
@@ -65,7 +70,8 @@ let init () : Model * Cmd<Msg> =
     let cmd = Cmd.OfPromise.perform fetchTodos () TodosFetched
     let model =
         { Todos = []
-          Input = "" }
+          Input = ""
+          Editing = None }
     model, cmd
 
 // Update
@@ -102,18 +108,40 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
         model, cmd
     | SetCompleted (id, completed) ->
         let patchDTO : PatchDTO =
-            { Completed = completed }
+            { Completed = Some completed
+              Title = None }
         let cmd = PatchCommand (id, patchDTO) |> execute
         model, cmd
     | ClearCompleted ->
         let cmd = execute DeleteCompletedCommand
         model, cmd
     | SetAllCompleted completed ->
-        let patchDTO : PatchDTO =
+        let patchDTO : PatchAllDTO =
             { Completed = completed }
         let cmd = PatchAllCommand patchDTO |> execute
         model, cmd
-
+    | StartEditing id ->
+        let editing =
+            model.Todos
+            |> List.tryFind (fun t -> t.Id = id)
+            |> Option.map (fun todo -> todo.Id, todo.Title)
+        { model with Editing = editing }, Cmd.none
+    | AbortEditing ->
+        { model with Editing = None }, Cmd.none
+    | SetEditingValue value ->
+        let editing =
+            model.Editing
+            |> Option.map (fun (id,_) -> id, value)
+        { model with Editing = editing }, Cmd.none
+    | ApplyEditing ->
+        match model.Editing with
+        | None -> model, Cmd.none
+        | Some (id, value) ->
+            let patchDTO : PatchDTO =
+                { Completed = None
+                  Title = Some value }
+            let cmd = PatchCommand (id, patchDTO) |> execute
+            { model with Editing = None }, cmd
 
 // View
 
@@ -133,10 +161,11 @@ let viewInput (model: Model) dispatch =
                 valueOrDefault model.Input
                 AutoFocus true ] ]
 
-let viewTodo (todo: Todo) dispatch =
+let viewTodo (todo: Todo, editing: string option) dispatch =
   li
     [ classList
-        [ "completed", todo.Completed ] ]
+        [ "completed", todo.Completed
+          "editing", Option.isSome editing ] ]
     [ div
         [ ClassName "view" ]
         [ input
@@ -145,12 +174,21 @@ let viewTodo (todo: Todo) dispatch =
               Checked todo.Completed
               OnChange (fun _ -> SetCompleted (todo.Id, not todo.Completed) |> dispatch) ]
           label
-            [ ]
+            [ OnDoubleClick (fun _ -> StartEditing todo.Id |> dispatch) ]
             [ str todo.Title ]
           button
             [ ClassName "destroy"
               OnClick (fun _ -> Destroy todo.Id |> dispatch) ]
-            [ ] ] ]
+            [ ] ]
+      input
+        [ ClassName "edit"
+          valueOrDefault (defaultArg editing "")
+          OnChange
+            (fun e -> e.target?value |> SetEditingValue |> dispatch)
+          OnKeyDown
+            (fun e ->
+                if e.keyCode = Key.esc then dispatch AbortEditing
+                elif e.keyCode = Key.enter then dispatch ApplyEditing) ] ]
 
 let viewTodos model dispatch =
     let todos = model.Todos
@@ -176,7 +214,12 @@ let viewTodos model dispatch =
         ul
           [ ClassName "todo-list" ]
           [ for todo in todos ->
-                viewTodo todo dispatch ] ]
+                let editing =
+                    model.Editing
+                    |> Option.bind
+                        (fun (id,title) ->
+                            if id = todo.Id then Some title else None)
+                viewTodo (todo, editing) dispatch ] ]
 
 let viewControlsCount todosLeft =
     let item =
