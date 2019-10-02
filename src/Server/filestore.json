@@ -22,7 +22,7 @@
     {
         "Id": "0f4f9b5e-1ada-4c31-84d6-91eb77921804",
         "Title": "delete completed Todos",
-        "Completed": false
+        "Completed": true
     },
     {
         "Id": "8b6a7a74-7f81-48f1-aafc-38985e022838",

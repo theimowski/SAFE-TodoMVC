@@ -31,6 +31,7 @@ type Msg =
     | Add
     | Destroy of Guid
     | SetCompleted of Guid * bool
+    | ClearCompleted
 
 // Fetch
 
@@ -54,6 +55,7 @@ let request (command: Command) =
     | AddCommand addDTO -> fetch HttpMethod.POST todos (Some addDTO)
     | DeleteCommand id -> fetch HttpMethod.DELETE (todo id) None
     | PatchCommand(id, patchDTO) -> fetch HttpMethod.PATCH (todo id) (Some patchDTO)
+    | DeleteCompletedCommand -> fetch HttpMethod.DELETE todos None
 
 // Initial model and command
 
@@ -101,6 +103,10 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
             { Completed = completed }
         let cmd = PatchCommand (id, patchDTO) |> execute
         model, cmd
+    | ClearCompleted ->
+        let cmd = execute DeleteCompletedCommand
+        model, cmd
+
 
 // View
 
@@ -161,6 +167,13 @@ let viewControlsCount todosLeft =
         [ strong [] [ str (string todosLeft) ]
           str (item + " left") ]
 
+let viewControlsClear todosCompleted dispatch =
+    button
+        [ ClassName "clear-completed"
+          Hidden (todosCompleted = 0)
+          OnClick (fun _ -> ClearCompleted |> dispatch) ]
+        [ str ("Clear completed") ]
+
 let viewControls model dispatch =
     let todosCompleted =
         model.Todos
@@ -172,7 +185,8 @@ let viewControls model dispatch =
     footer
         [ ClassName "footer"
           Hidden (List.isEmpty model.Todos) ]
-        [ viewControlsCount todosLeft ]
+        [ viewControlsCount todosLeft
+          viewControlsClear todosCompleted dispatch ]
 
 let view model dispatch =
     div

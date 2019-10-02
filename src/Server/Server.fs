@@ -33,6 +33,10 @@ let todosRouter = router {
             let! addDTO = ctx.BindModelAsync<AddDTO>()
             return! execute (AddCommand addDTO) next ctx
         })
+    delete "" (fun next ctx ->
+        task {
+            return! execute DeleteCompletedCommand next ctx
+        })
 }
 
 let todoRouter (id: Guid) = router {
