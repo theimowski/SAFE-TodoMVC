@@ -27,7 +27,7 @@
     {
         "Id": "8b6a7a74-7f81-48f1-aafc-38985e022838",
         "Title": "toggle completed for all Todos",
-        "Completed": false
+        "Completed": true
     },
     {
         "Id": "f6ad5f9c-17d5-49be-8faa-b8e6529a25e9",

@@ -32,6 +32,7 @@ type Msg =
     | Destroy of Guid
     | SetCompleted of Guid * bool
     | ClearCompleted
+    | SetAllCompleted of bool
 
 // Fetch
 
@@ -56,6 +57,7 @@ let request (command: Command) =
     | DeleteCommand id -> fetch HttpMethod.DELETE (todo id) None
     | PatchCommand(id, patchDTO) -> fetch HttpMethod.PATCH (todo id) (Some patchDTO)
     | DeleteCompletedCommand -> fetch HttpMethod.DELETE todos None
+    | PatchAllCommand patchDTO -> fetch HttpMethod.PATCH todos (Some patchDTO)
 
 // Initial model and command
 
@@ -106,6 +108,11 @@ let update (msg : Msg) (model : Model) : Model * Cmd<Msg> =
     | ClearCompleted ->
         let cmd = execute DeleteCompletedCommand
         model, cmd
+    | SetAllCompleted completed ->
+        let patchDTO : PatchDTO =
+            { Completed = completed }
+        let cmd = PatchAllCommand patchDTO |> execute
+        model, cmd
 
 
 // View
@@ -150,10 +157,23 @@ let viewTodos model dispatch =
     let cssVisibility =
         if List.isEmpty todos then "hidden" else "visible"
 
+    let allCompleted =
+        todos |> List.forall (fun t -> t.Completed)
+
     section
       [ ClassName "main"
         Style [ Visibility cssVisibility ]]
-      [ ul
+      [ input
+          [ ClassName "toggle-all"
+            Type "checkbox"
+            Name "toggle"
+            Checked allCompleted
+            OnChange ignore ]
+        label
+          [ HtmlFor "toggle-all"
+            OnClick (fun _ -> SetAllCompleted (not allCompleted) |> dispatch) ]
+          [ str "Mark all as complete" ]
+        ul
           [ ClassName "todo-list" ]
           [ for todo in todos ->
                 viewTodo todo dispatch ] ]

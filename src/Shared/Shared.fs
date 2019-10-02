@@ -14,6 +14,7 @@ type Command =
     | DeleteCommand of Guid
     | PatchCommand of Guid * PatchDTO
     | DeleteCompletedCommand
+    | PatchAllCommand of PatchDTO
 
 type Todo =
     { Id : Guid
@@ -25,6 +26,7 @@ type Event =
     | TodoDeleted of Todo
     | TodoPatched of Todo
     | CompletedTodosDeleted
+    | AllTodosMarkedAs of bool
 
 type Error =
     | TodoIdAlreadyExists
@@ -57,6 +59,8 @@ module Todos =
                 Error TodoNotFound
         | DeleteCompletedCommand ->
             CompletedTodosDeleted |> Ok
+        | PatchAllCommand patchDTO ->
+            AllTodosMarkedAs patchDTO.Completed |> Ok
 
     let apply (event: Event) (todos: Todo list) =
         match event with
@@ -68,3 +72,5 @@ module Todos =
             todos |> List.map (fun t -> if t.Id = todo.Id then todo else t)
         | CompletedTodosDeleted ->
             todos |> List.filter (fun t -> not t.Completed)
+        | AllTodosMarkedAs completed ->
+            todos |> List.map (fun t -> { t with Completed = completed })
