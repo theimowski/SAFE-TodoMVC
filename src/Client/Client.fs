@@ -81,14 +81,7 @@ let viewTodo (todo) dispatch =
         [ ClassName "view" ]
         [ label
             [ ]
-            [ str todo.Description ] ]
-      input
-        [ ClassName "edit"
-          DefaultValue todo.Description
-          Name "title"
-          Id ("todo-" + (string todo.Id)) ]
-    ]
-
+            [ str todo.Description ] ] ]
 
 let viewTodos model dispatch =
     let todos = model.Todos
